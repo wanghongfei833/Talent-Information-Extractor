@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>欢迎使用人才信息管理系统</h1>
+    <p>专业的用户管理和权限控制平台</p>
+    
+    {% if not current_user.is_authenticated %}
+        <div class="cta-buttons">
+            <a href="{{ url_for('tie.register') }}" class="btn btn-primary">立即注册</a>
+            <a href="{{ url_for('tie.login') }}" class="btn btn-secondary">登录</a>
+        </div>
+    {% else %}
+        <div class="cta-buttons">
+            <a href="{{ url_for('tie.dashboard') }}" class="btn btn-primary">进入仪表盘</a>
+            <a href="{{ url_for('tie.profile') }}" class="btn btn-secondary">个人资料</a>
+        </div>
+    {% endif %}
+</div>
+
+<div class="features">
+    <h2>平台特色</h2>
+    <div class="feature-grid">
+        <div class="feature-item">
+            <h3>👥 用户管理</h3>
+            <p>完善的用户管理和权限控制系统</p>
+        </div>
+        <div class="feature-item">
+            <h3>🔐 安全认证</h3>
+            <p>基于 Flask-Login 的安全认证机制</p>
+        </div>
+        <div class="feature-item">
+            <h3>⭐ 等级系统</h3>
+            <p>完善的会员等级系统，更多权益等你解锁</p>
+        </div>
+        <div class="feature-item">
+            <h3>⚙️ API 配置</h3>
+            <p>统一管理用户的 API 配置信息</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

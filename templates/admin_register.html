@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-page">
+    <h1>👤 管理员注册</h1>
+    
+    <div class="alert alert-warning">
+        ⚠️ 此页面仅超级管理员可访问，用于创建新用户账号
+    </div>
+    
+    <form method="POST" class="auth-form">
+        <div class="form-group">
+            <label for="username">用户名 *</label>
+            <input type="text" name="username" id="username" required autofocus>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">邮箱</label>
+            <input type="email" name="email" id="email" placeholder="可选填写">
+            <small>用于接收通知，可不填写</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">密码（默认：123456!）</label>
+            <input type="password" name="password" id="password" value="123456!" minlength="6">
+            <small>建议首次登录后修改密码</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="level">用户等级</label>
+            <select name="level" id="level">
+                <option value="1">普通会员</option>
+                <option value="2">高级会员</option>
+                <option value="3">VIP 会员</option>
+                <option value="4">超级 VIP</option>
+                <option value="5">管理员（谨慎设置）</option>
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">➕ 创建用户</button>
+            <a href="{{ url_for('tie.manage_users') }}" class="btn btn-secondary">返回管理列表</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-page">
+    <h1>个人资料</h1>
+    
+    <div class="profile-card">
+        <div class="profile-header">
+            <h2>{{ current_user.username }}</h2>
+            <span class="badge level-{{ current_user.level }}">{{ current_user.get_level_name() }}</span>
+        </div>
+        
+        <div class="profile-info">
+            <div class="info-row">
+                <span class="label">📧 邮箱：</span>
+                <span>{{ current_user.email }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">⭐ 等级：</span>
+                <span>{{ current_user.get_level_name() }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">💎 经验值：</span>
+                <span>{{ current_user.experience }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">🎁 积分：</span>
+                <span>{{ current_user.credits }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">📊 今日上传：</span>
+                <span>{{ current_user.daily_uploads }} / {{ current_user.max_daily_uploads }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">📅 注册时间：</span>
+                <span>{{ current_user.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">🕐 最后登录：</span>
+                <span>{{ current_user.last_login.strftime('%Y-%m-%d %H:%M') if current_user.last_login else '无' }}</span>
+            </div>
+        </div>
+        
+        <div class="profile-actions">
+            <a href="{{ url_for('tie.change_password') }}" class="btn btn-primary">🔑 修改密码</a>
+            <a href="{{ url_for('tie.dashboard') }}" class="btn btn-secondary">返回仪表盘</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

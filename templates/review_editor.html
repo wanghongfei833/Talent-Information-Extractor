@@ -1,0 +1,2164 @@
+{% extends "base.html" %}
+
+{% block title %}矩形标注 · 数据复核{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 复核页：主内容区占满窗口宽度（突破全局 .container 1200px） */
+body.page-review-editor main.container {
+    max-width: none;
+    width: 100%;
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+}
+
+/* 三栏：左右略收、中间自适应占满剩余空间 */
+.review-editor {
+    display: grid;
+    grid-template-columns: minmax(220px, 252px) minmax(0, 1fr) minmax(240px, 288px);
+    gap: 10px;
+    height: calc(100vh - 100px);
+    margin-top: 8px;
+    padding-bottom: 92px;
+    box-sizing: border-box;
+}
+
+.review-editor > .panel {
+    min-height: 0;
+}
+
+/* 通用面板样式 */
+.panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-header {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    border-bottom: 3px solid rgba(255,255,255,0.2);
+}
+
+.panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+/* 左侧文件列表 */
+.file-list-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.search-box {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.file-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.file-item {
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    border-left: 3px solid transparent;
+}
+
+.file-item:hover {
+    background: #e9ecef;
+    border-left-color: #667eea;
+}
+
+.file-item.active {
+    background: #e3f2fd;
+    border-left-color: #2196f3;
+    box-shadow: 0 2px 4px rgba(33,150,243,0.2);
+}
+
+.file-name {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 14px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-status {
+    font-size: 12px;
+    color: #7f8c8d;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.status-icon {
+    font-size: 10px;
+}
+
+/* 中间画布区 */
+.canvas-panel {
+    position: relative;
+}
+
+.canvas-panel .panel-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.canvas-wrapper {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    background: #e8e8e8;
+    display: block;
+    overflow-x: auto;
+    overflow-y: auto;
+    position: relative;
+    padding: 8px;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 画布块略窄于容器时居中；宽于容器时可横向滚动看全图 */
+.canvas-wrapper .canvas-container {
+    margin: 0 auto;
+    width: fit-content;
+    max-width: none;
+}
+
+.canvas-placeholder {
+    text-align: center;
+    color: #999;
+    padding: 40px;
+}
+
+.canvas-placeholder .icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.canvas-placeholder .text {
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+#annotation-canvas {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    background: white;
+    vertical-align: top;
+}
+
+/* Fabric 生成的 upper/lower canvas 需能接收指针（避免被某层透明覆盖后点不中） */
+.canvas-wrapper .canvas-container canvas {
+    pointer-events: auto;
+    touch-action: none;
+}
+
+/* 右侧属性面板 */
+.property-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.property-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-weight: bold;
+    color: #555;
+    font-size: 13px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+    background: #f5f5f5;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.coordinates-display {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    border: 1px solid #e0e0e0;
+}
+
+.coordinates-display h4 {
+    margin: 0 0 10px 0;
+    color: #666;
+    font-size: 12px;
+}
+
+.coord-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px dashed #e0e0e0;
+}
+
+.coord-row:last-child {
+    border-bottom: none;
+}
+
+.coord-label {
+    color: #888;
+}
+
+.coord-value {
+    color: #2196f3;
+    font-weight: bold;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+}
+
+.btn-success {
+    background: #27ae60;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #229954;
+}
+
+.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+.btn-secondary {
+    background: #95a5a6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #7f8c8d;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 保存成功等非阻断提示（无需点击） */
+.review-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    padding: 12px 26px;
+    background: rgba(39, 174, 96, 0.96);
+    color: #fff;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1100;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.28s ease;
+    max-width: 90vw;
+    text-align: center;
+}
+.review-toast.review-toast--show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* 导出弹窗 */
+.export-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.export-modal-backdrop.show { display: flex; }
+.export-modal {
+    width: min(760px, 96vw);
+    max-height: min(78vh, 720px);
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.export-modal-header {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.export-modal-body {
+    padding: 14px 18px;
+    overflow: auto;
+}
+.export-toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.export-file-list {
+    border: 1px solid #eee;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.export-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f1f1;
+}
+.export-file-row:last-child { border-bottom: none; }
+.export-file-name { font-weight: 600; color: #2c3e50; }
+.export-file-meta { font-size: 12px; color: #7f8c8d; }
+.export-modal-footer {
+    padding: 12px 18px;
+    border-top: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.export-actions { display: flex; gap: 10px; }
+.export-progress {
+    flex: 1;
+    height: 10px;
+    background: #f1f3f5;
+    border-radius: 999px;
+    overflow: hidden;
+    display: none;
+}
+.export-progress.show { display: block; }
+.export-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #27ae60 0%, #2ecc71 100%);
+    transition: width 0.2s ease;
+}
+.export-progress-text {
+    min-width: 120px;
+    font-size: 12px;
+    color: #555;
+    text-align: right;
+}
+
+/* 底部工具栏 */
+.bottom-toolbar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    padding: 15px 30px;
+    border-radius: 50px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    display: flex;
+    gap: 15px;
+    z-index: 1000;
+}
+
+.toolbar-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toolbar-btn.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.toolbar-btn.success {
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    color: white;
+}
+
+.toolbar-btn.secondary {
+    background: #ecf0f1;
+    color: #2c3e50;
+}
+
+.toolbar-btn.active {
+    background: #ff9800 !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.4);
+}
+
+.toolbar-btn.unsaved-hint {
+    box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.9);
+}
+
+.toolbar-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.toolbar-btn:active {
+    transform: translateY(0);
+}
+
+/* 响应式 */
+@media (max-width: 1400px) {
+    .review-editor {
+        grid-template-columns: minmax(200px, 240px) minmax(0, 1fr) minmax(220px, 268px);
+    }
+}
+
+@media (max-width: 1200px) {
+    .review-editor {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    
+    .panel {
+        margin-bottom: 20px;
+        min-height: 400px;
+    }
+    
+    .bottom-toolbar {
+        bottom: 10px;
+        padding: 10px 20px;
+    }
+    
+    .toolbar-btn {
+        padding: 8px 15px;
+        font-size: 13px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="review-editor-page">
+<div class="review-editor">
+    <!-- 左侧面板：文件列表 -->
+    <div class="panel file-list-container">
+        <div class="panel-header">
+            📁 文件列表
+        </div>
+        <div class="search-box">
+            <input type="text" id="file-search" placeholder="🔍 搜索文件..." onkeyup="filterFiles()">
+        </div>
+        <div class="panel-body">
+            <div id="file-list" class="file-list">
+                <!-- 动态生成文件列表 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 中间面板：Canvas 画布 -->
+    <div class="panel canvas-panel">
+        <div class="panel-header">
+            🎨 标注画布（拖拽画框 · 仅矩形）
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <div id="canvas-placeholder" class="canvas-placeholder">
+                    <div class="icon">📋</div>
+                    <div class="text">请选择一个文件开始编辑</div>
+                </div>
+                <canvas id="annotation-canvas" style="display: none;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧面板：属性编辑 -->
+    <div class="panel property-panel">
+        <div class="panel-header">
+            ⚙️ 属性编辑
+        </div>
+        <div class="panel-body">
+            <div class="property-form">
+                <div class="form-group">
+                    <label for="edit-title">标题 (Title)</label>
+                    <input type="text" id="edit-title" disabled placeholder="未选择标注">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-content">内容 (Content)</label>
+                    <textarea id="edit-content" disabled placeholder="标注内容"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-is-red">标红状态</label>
+                    <select id="edit-is-red" disabled>
+                        <option value="false">🔵 普通标注</option>
+                        <option value="true">🔴 标红标注</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-page">页码</label>
+                    <input type="number" id="edit-page" disabled placeholder="页码">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-font-size">字体大小（标签）</label>
+                    <select id="edit-font-size" disabled>
+                        <option value="12">12</option>
+                        <option value="14">14</option>
+                        <option value="16">16</option>
+                        <option value="18">18</option>
+                        <option value="20">20</option>
+                        <option value="22">22</option>
+                        <option value="24">24</option>
+                        <option value="26">26</option>
+                        <option value="28">28</option>
+                        <option value="30" selected>30</option>
+                        <option value="32">32</option>
+                        <option value="34">34</option>
+                        <option value="36">36</option>
+                        <option value="40">40</option>
+                        <option value="44">44</option>
+                        <option value="48">48</option>
+                        <option value="52">52</option>
+                        <option value="56">56</option>
+                        <option value="60">60</option>
+                    </select>
+                </div>
+                
+                <div class="coordinates-display">
+                    <h4>📍 坐标位置</h4>
+                    <div class="coord-row">
+                        <span class="coord-label">X1:</span>
+                        <span class="coord-value" id="coord-x1">-</span>
+                    </div>
+                    <div class="coord-row">
+                        <span class="coord-label">Y1:</span>
+                        <span class="coord-value" id="coord-y1">-</span>
+                    </div>
+                    <div class="coord-row">
+                        <span class="coord-label">X2:</span>
+                        <span class="coord-value" id="coord-x2">-</span>
+                    </div>
+                    <div class="coord-row">
+                        <span class="coord-label">Y2:</span>
+                        <span class="coord-value" id="coord-y2">-</span>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-danger" id="btn-delete" onclick="deleteCurrentBox()" disabled>
+                        🗑️ 删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- 底部工具栏：仅保存、导出 -->
+<div class="bottom-toolbar">
+    <button type="button" class="toolbar-btn success" id="btn-save-all" onclick="saveAllChanges()">
+        保存
+    </button>
+    <button type="button" class="toolbar-btn secondary" onclick="exportData()">
+        导出
+    </button>
+</div>
+
+<!-- 导出弹窗 -->
+<div class="export-modal-backdrop" id="export-backdrop" aria-hidden="true">
+    <div class="export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
+        <div class="export-modal-header">
+            <div id="export-title">导出标注为 JPG</div>
+            <button type="button" class="btn btn-secondary btn-sm" id="export-close">关闭</button>
+        </div>
+        <div class="export-modal-body">
+            <div class="export-toolbar">
+                <label style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="export-check-all">
+                    <span style="font-weight:700;">全选</span>
+                </label>
+                <span class="export-file-meta" id="export-selected-hint">已选 0 个文件</span>
+            </div>
+            <div class="export-file-list" id="export-file-list"></div>
+        </div>
+        <div class="export-modal-footer">
+            <div class="export-progress" id="export-progress">
+                <div class="export-progress-bar" id="export-progress-bar"></div>
+            </div>
+            <div class="export-progress-text" id="export-progress-text"></div>
+            <div class="export-actions">
+                <button type="button" class="btn btn-secondary" id="export-cancel">取消</button>
+                <button type="button" class="btn btn-secondary" id="export-download" disabled>下载导出结果</button>
+                <button type="button" class="btn btn-primary" id="export-start">开始导出</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script>
+/* Fabric 5.x 部分路径会把 textBaseline 写成非法值 'alphabetical'（Canvas 仅接受 alphabetic） */
+(function () {
+    try {
+        var proto = CanvasRenderingContext2D.prototype;
+        var desc = Object.getOwnPropertyDescriptor(proto, 'textBaseline');
+        if (!desc || typeof desc.set !== 'function' || !desc.configurable) return;
+        var origSet = desc.set;
+        Object.defineProperty(proto, 'textBaseline', {
+            get: desc.get,
+            set: function (v) {
+                if (v === 'alphabetical') v = 'alphabetic';
+                return origSet.call(this, v);
+            },
+            enumerable: desc.enumerable,
+            configurable: true
+        });
+    } catch (e) { /* 旧环境无此描述符时跳过 */ }
+})();
+// ========== 全局变量 ==========
+// 本项目挂载在 /TIE 下（用于生成绝对请求路径，避免相对路径落到 /TIE/data-review/...）
+const TIE_BASE = '/TIE';
+let canvas = null;
+let currentFile = null;
+let currentFileImage = null;
+let selectedBox = null;
+let realFiles = [];
+let canvasResizeTimer = null;
+let annIdSeq = 0;
+/** 防止连续切换文件或重复加载时，较早完成的请求覆盖较晚的画布 */
+let _reviewLoadToken = 0;
+/** 上次「已保存」或「刚载入」时的标注快照，用于判断是否未保存 */
+let _reviewSavedSnapshot = '';
+/** 全局标签字号（让同一页的标签一致） */
+let _reviewLabelFontSize = 30;
+/** 复核页默认加载预览图；标注坐标仍以原图像素为准，这里保存缩放比例 */
+let _reviewScaleX = 1;
+let _reviewScaleY = 1;
+let _reviewOrigSize = null;    // [w,h]
+let _reviewDisplaySize = null; // [w,h] 实际加载到画布的图（预览图）尺寸
+/** 本次导出成功的文件列表（用于一键下载） */
+let _lastExportedImages = [];
+
+function newAnnId() {
+    return 'a' + (++annIdSeq);
+}
+
+/** 画框模式：在空白处按住拖拽新建矩形 */
+let drawMode = false;
+let drawStart = null;
+let tempRect = null;
+
+function escapeAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function normalizeAnnotationList(data) {
+    if (!data || data.error) return [];
+    if (Array.isArray(data)) return data;
+    if (data.info && Array.isArray(data.info)) return data.info;
+    return [];
+}
+
+/** 复核专用文件名：与解析产出的 *.json 分离，避免覆盖原始解析结果 */
+function deriveReviewJsonName(imageFilename) {
+    return String(imageFilename || '').replace(/\.(jpe?g|png|webp|gif|bmp)$/i, '') + '.review.json';
+}
+
+function buildReviewPayload(infoList) {
+    return {
+        version: 1,
+        format: 'review_editor',
+        image: currentFile && currentFile.image ? currentFile.image : '',
+        image_size: _reviewOrigSize,
+        display_size: _reviewDisplaySize,
+        updatedAt: new Date().toISOString(),
+        settings: {
+            labelFontSize: _reviewLabelFontSize
+        },
+        info: infoList
+    };
+}
+
+function _numOrNull(x) {
+    return (typeof x === 'number' && isFinite(x)) ? x : null;
+}
+
+function boxOriginalToDisplay(box) {
+    if (!box || box.length !== 4) return box;
+    const sx = _numOrNull(_reviewScaleX) || 1;
+    const sy = _numOrNull(_reviewScaleY) || 1;
+    if (sx === 1 && sy === 1) return box.slice();
+    return [
+        Math.round(box[0] * sx),
+        Math.round(box[1] * sy),
+        Math.round(box[2] * sx),
+        Math.round(box[3] * sy)
+    ];
+}
+
+function boxDisplayToOriginal(box) {
+    if (!box || box.length !== 4) return box;
+    const sx = _numOrNull(_reviewScaleX) || 1;
+    const sy = _numOrNull(_reviewScaleY) || 1;
+    if (sx === 1 && sy === 1) return box.slice();
+    return [
+        Math.round(box[0] / sx),
+        Math.round(box[1] / sy),
+        Math.round(box[2] / sx),
+        Math.round(box[3] / sy)
+    ];
+}
+
+function posOriginalToDisplay(pos) {
+    if (!pos || typeof pos.left !== 'number' || typeof pos.top !== 'number') return pos;
+    const sx = _numOrNull(_reviewScaleX) || 1;
+    const sy = _numOrNull(_reviewScaleY) || 1;
+    if (sx === 1 && sy === 1) return { left: pos.left, top: pos.top };
+    return { left: Math.round(pos.left * sx), top: Math.round(pos.top * sy) };
+}
+
+function posDisplayToOriginal(pos) {
+    if (!pos || typeof pos.left !== 'number' || typeof pos.top !== 'number') return pos;
+    const sx = _numOrNull(_reviewScaleX) || 1;
+    const sy = _numOrNull(_reviewScaleY) || 1;
+    if (sx === 1 && sy === 1) return { left: pos.left, top: pos.top };
+    return { left: Math.round(pos.left / sx), top: Math.round(pos.top / sy) };
+}
+
+function getAnnotationsSnapshot() {
+    if (!canvas) return '';
+    try {
+        const list = gatherAnnotationsForSave().map(function (x) {
+            return JSON.parse(JSON.stringify(x));
+        });
+        list.sort(function (a, b) {
+            const ba = (a.box || []).join(',');
+            const bb = (b.box || []).join(',');
+            if (ba !== bb) return ba < bb ? -1 : (ba > bb ? 1 : 0);
+            return String(a.title || '').localeCompare(String(b.title || ''), 'zh');
+        });
+        return JSON.stringify(list);
+    } catch (err) {
+        return '';
+    }
+}
+
+function syncReviewSavedBaseline() {
+    _reviewSavedSnapshot = getAnnotationsSnapshot();
+    refreshSaveDirtyUi();
+}
+
+function hasUnsavedReviewChanges() {
+    if (!currentFile || !canvas) return false;
+    return getAnnotationsSnapshot() !== _reviewSavedSnapshot;
+}
+
+function refreshSaveDirtyUi() {
+    const btn = document.getElementById('btn-save-all');
+    if (!btn) return;
+    if (hasUnsavedReviewChanges()) {
+        btn.classList.add('unsaved-hint');
+        btn.title = '有未保存的修改，请点击保存或按 Ctrl+S';
+    } else {
+        btn.classList.remove('unsaved-hint');
+        btn.title = '';
+    }
+}
+
+async function confirmSwitchFileOrSave(nextImage) {
+    if (!hasUnsavedReviewChanges()) return true;
+    const name = currentFile && currentFile.name ? currentFile.name : '';
+    const saveFirst = window.confirm(
+        '当前文件「' + name + '」有未保存的修改。\n\n' +
+        '「确定」：先保存到服务器，再打开所选文件。\n' +
+        '「取消」：放弃修改或留在当前页（下一步再选）。'
+    );
+    if (saveFirst) {
+        const ok = await saveAllChanges({ silentSuccess: true });
+        if (!ok) {
+            alert('保存失败，暂不切换文件。');
+            return false;
+        }
+        return true;
+    }
+    const discard = window.confirm(
+        '确定放弃未保存的修改并切换到「' + nextImage + '」？\n（此操作不可恢复）');
+    if (!discard) return false;
+    return true;
+}
+
+function bindCanvasDirtyTracking() {
+    if (!canvas || canvas._reviewDirtyBound) return;
+    canvas._reviewDirtyBound = true;
+    var r = function () { refreshSaveDirtyUi(); };
+    canvas.on('object:modified', r);
+    canvas.on('object:added', r);
+    canvas.on('object:removed', r);
+}
+
+var _reviewToastHideTimer = null;
+/** 轻量提示，数秒后自动消失，无需用户点击 */
+function showReviewToast(message) {
+    var el = document.getElementById('review-toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'review-toast';
+        el.className = 'review-toast';
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
+        document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add('review-toast--show');
+    clearTimeout(_reviewToastHideTimer);
+    _reviewToastHideTimer = setTimeout(function () {
+        el.classList.remove('review-toast--show');
+    }, 2400);
+}
+
+function setExportModalOpen(open) {
+    const bd = document.getElementById('export-backdrop');
+    if (!bd) return;
+    if (open) {
+        bd.classList.add('show');
+        bd.setAttribute('aria-hidden', 'false');
+    } else {
+        bd.classList.remove('show');
+        bd.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function updateExportSelectedHint() {
+    const listEl = document.getElementById('export-file-list');
+    const hint = document.getElementById('export-selected-hint');
+    if (!listEl || !hint) return;
+    const checked = listEl.querySelectorAll('input[type="checkbox"][data-image]:checked').length;
+    hint.textContent = '已选 ' + checked + ' 个文件';
+}
+
+function renderExportFileList() {
+    const listEl = document.getElementById('export-file-list');
+    if (!listEl) return;
+    const rows = (realFiles || []).map(function (f) {
+        const safeName = escapeAttr(f.name || f.image || '');
+        const safeImg = escapeAttr(f.image || '');
+        return (
+            '<div class="export-file-row">' +
+            '<input type="checkbox" class="export-item" data-image="' + safeImg + '" checked>' +
+            '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;">' +
+            '<div class="export-file-name">' + safeName + '</div>' +
+            '<div class="export-file-meta">' + safeImg + '</div>' +
+            '</div>' +
+            '</div>'
+        );
+    }).join('');
+    listEl.innerHTML = rows || '<div style="padding:12px;color:#888;">暂无可导出的文件</div>';
+    updateExportSelectedHint();
+}
+
+function collectExportSelections() {
+    const listEl = document.getElementById('export-file-list');
+    if (!listEl) return [];
+    return Array.from(listEl.querySelectorAll('input[type="checkbox"][data-image]:checked'))
+        .map(function (el) { return el.getAttribute('data-image'); })
+        .filter(Boolean);
+}
+
+function setExportProgress(done, total) {
+    const p = document.getElementById('export-progress');
+    const bar = document.getElementById('export-progress-bar');
+    const txt = document.getElementById('export-progress-text');
+    if (!p || !bar || !txt) return;
+    if (!total) {
+        p.classList.remove('show');
+        bar.style.width = '0%';
+        txt.textContent = '';
+        return;
+    }
+    p.classList.add('show');
+    const pct = Math.max(0, Math.min(100, Math.round(done * 100 / total)));
+    bar.style.width = pct + '%';
+    txt.textContent = done + ' / ' + total;
+}
+
+function loadJsonNoStore(url) {
+    return fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now(), {
+        cache: 'no-store',
+        credentials: 'same-origin'
+    }).then(function (r) {
+        if (!r.ok) throw new Error(r.statusText || 'HTTP ' + r.status);
+        return r.json();
+    });
+}
+
+function loadImageToFabric(url) {
+    return new Promise(function (resolve, reject) {
+        fabric.Image.fromURL(url + (url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now(), function (img) {
+            resolve(img);
+        }, { crossOrigin: 'anonymous' });
+        // fabric.fromURL 失败时不会走 reject，这里留给外层超时/异常捕获
+    });
+}
+
+async function renderOneExportJpg(imageName) {
+    // 1) 取该文件最新标注（与页面一致的选择逻辑）
+    const ann = await loadJsonNoStore(`${TIE_BASE}/api/review/annotations-for/` + encodeURIComponent(imageName));
+    // 2) 建临时离屏 canvas + fabric
+    const offCanvasEl = document.createElement('canvas');
+    offCanvasEl.width = 10;
+    offCanvasEl.height = 10;
+    offCanvasEl.style.position = 'fixed';
+    offCanvasEl.style.left = '-10000px';
+    offCanvasEl.style.top = '-10000px';
+    document.body.appendChild(offCanvasEl);
+
+    let off = null;
+    try {
+        off = new fabric.Canvas(offCanvasEl, {
+            selection: false,
+            preserveObjectStacking: true
+        });
+
+        const img = await loadImageToFabric(`${TIE_BASE}/api/review/image/` + encodeURIComponent(imageName));
+        off.setDimensions({ width: img.width, height: img.height });
+        off.setBackgroundImage(img, off.renderAll.bind(off));
+        off.renderAll();
+
+        // 3) 复用现有渲染逻辑：临时切换全局 canvas 指针到 off
+        const prevCanvas = canvas;
+        canvas = off;
+        try {
+            // 从文件设置中取字号（若无则默认 30）
+            const fs = ann && ann.settings && ann.settings.labelFontSize != null ? parseInt(ann.settings.labelFontSize, 10) : null;
+            _reviewLabelFontSize = (fs && isFinite(fs)) ? Math.max(10, Math.min(60, fs)) : 30;
+            renderRealAnnotations(ann);
+        } finally {
+            canvas = prevCanvas;
+        }
+
+        off.renderAll();
+        const dataUrl = off.toDataURL({ format: 'jpeg', quality: 0.95 });
+        const blob = await (await fetch(dataUrl)).blob();
+        return blob;
+    } finally {
+        try { if (off) off.dispose(); } catch (e) {}
+        try { offCanvasEl.remove(); } catch (e) {}
+    }
+}
+
+async function doExportSelectedJpgs() {
+    const images = collectExportSelections();
+    if (!images.length) {
+        showReviewToast('请选择要导出的文件');
+        return;
+    }
+
+    const startBtn = document.getElementById('export-start');
+    const cancelBtn = document.getElementById('export-cancel');
+    const closeBtn = document.getElementById('export-close');
+    const dlBtn = document.getElementById('export-download');
+    if (startBtn) startBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    if (closeBtn) closeBtn.disabled = true;
+    if (dlBtn) dlBtn.disabled = true;
+
+    let okCount = 0;
+    setExportProgress(0, images.length);
+    try {
+        for (let i = 0; i < images.length; i++) {
+            const imgName = images[i];
+            // 渲染 jpg
+            const jpgBlob = await renderOneExportJpg(imgName);
+            // 上传保存
+            const fd = new FormData();
+            fd.append('image', imgName);
+            fd.append('file', jpgBlob, (String(imgName).replace(/\.[^.]+$/i, '') + '.jpg'));
+            const resp = await fetch(`${TIE_BASE}/api/review/export-jpg`, {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            });
+            const body = await resp.json().catch(function () { return {}; });
+            if (!resp.ok || !body.success) {
+                throw new Error(body.error || resp.statusText || '导出失败');
+            }
+            okCount++;
+            setExportProgress(i + 1, images.length);
+        }
+        _lastExportedImages = images.slice();
+        if (dlBtn) dlBtn.disabled = _lastExportedImages.length === 0;
+        showReviewToast('导出完成：' + okCount + ' 个文件');
+        // 导出完成后留在弹窗，方便用户点击下载
+    } catch (e) {
+        alert('导出中断：' + e.message);
+    } finally {
+        setExportProgress(0, 0);
+        if (startBtn) startBtn.disabled = false;
+        if (cancelBtn) cancelBtn.disabled = false;
+        if (closeBtn) closeBtn.disabled = false;
+        // dlBtn 在成功时启用；失败时仍保持禁用
+    }
+}
+
+async function downloadLastExportZip() {
+    if (!_lastExportedImages || !_lastExportedImages.length) {
+        showReviewToast('暂无可下载的导出结果');
+        return;
+    }
+    const btn = document.getElementById('export-download');
+    if (btn) btn.disabled = true;
+    try {
+        const resp = await fetch(`${TIE_BASE}/api/review/export-zip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: _lastExportedImages }),
+            credentials: 'same-origin'
+        });
+        if (!resp.ok) {
+            const body = await resp.json().catch(function () { return {}; });
+            throw new Error(body.error || resp.statusText || '下载失败');
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'EXPORT_' + new Date().toISOString().replace(/[:.]/g, '').slice(0, 15) + '.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showReviewToast('开始下载 ZIP');
+    } catch (e) {
+        alert('下载失败：' + e.message);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+function pageHintFromCurrentFile() {
+    if (!currentFile || !currentFile.image) return 1;
+    const base = currentFile.image.replace(/\.[^.]+$/i, '');
+    const m = base.match(/_(\d+)$/);
+    return m ? parseInt(m[1], 10) : 1;
+}
+
+function rectToBox(rect) {
+    return [
+        Math.round(rect.left),
+        Math.round(rect.top),
+        Math.round(rect.left + rect.getScaledWidth()),
+        Math.round(rect.top + rect.getScaledHeight())
+    ];
+}
+
+function buildLabelText(data) {
+    const t = (data.title || '').trim();
+    const c = (data['内容'] || '').trim();
+    if (t && c) return t + '：' + c;
+    return t || c || '（空）';
+}
+
+function findLabelByAnnId(annId) {
+    return canvas.getObjects().find(o => o.data && o.data.role === 'label' && o.data.annId === annId);
+}
+
+function getAnnotationRect(obj) {
+    if (!obj || !obj.data) return null;
+    if (obj.data.role === 'box') return obj;
+    if (obj.data.role === 'label') {
+        return canvas.getObjects().find(o => o.data && o.data.role === 'box' && o.data.annId === obj.data.annId) || null;
+    }
+    return obj;
+}
+
+function removeAnnotationPair(obj) {
+    const rect = getAnnotationRect(obj);
+    if (!rect || !rect.data || !rect.data.annId) return;
+    const label = findLabelByAnnId(rect.data.annId);
+    if (label) canvas.remove(label);
+    canvas.remove(rect);
+    canvas.discardActiveObject();
+    canvas.renderAll();
+}
+
+function syncLabelFromRect(rect) {
+    if (!rect || rect.data.role !== 'box') return;
+    const label = findLabelByAnnId(rect.data.annId);
+    if (!label) return;
+    const d = rect.data;
+    const st = d.style || {};
+    const isRed = !!d['标红'];
+    label.set({
+        text: buildLabelText(d),
+        fill: st.labelFill != null && st.labelFill !== '' ? st.labelFill : (isRed ? '#c0392b' : '#154360'),
+        stroke: st.labelStroke != null && st.labelStroke !== '' ? st.labelStroke : '#ffffff',
+        fontSize: (st.labelFontSize != null ? parseInt(st.labelFontSize, 10) : _reviewLabelFontSize)
+    });
+    if (typeof label.initDimensions === 'function') label.initDimensions();
+    label.setCoords();
+}
+
+function createLabelTextbox(item, annId, box) {
+    const bw = box[2] - box[0];
+    const bh = box[3] - box[1];
+    const maxW = Math.max(260, Math.min(1400, Math.max(bw * 2.2, 320)));
+    const isRed = !!item['标红'];
+    const st = item.style || {};
+    const labelFill = st.labelFill != null && st.labelFill !== '' ? st.labelFill : (isRed ? '#c0392b' : '#154360');
+    const labelStroke = st.labelStroke != null && st.labelStroke !== '' ? st.labelStroke : '#ffffff';
+    const fontSize = (st.labelFontSize != null ? parseInt(st.labelFontSize, 10) : _reviewLabelFontSize);
+    const tb = new fabric.Textbox(buildLabelText(item), {
+        left: 0,
+        top: 0,
+        width: maxW,
+        fontSize: fontSize,
+        fontFamily: 'Microsoft YaHei, "Segoe UI", "PingFang SC", sans-serif',
+        fill: labelFill,
+        lineHeight: 1.25,
+        backgroundColor: '',
+        textBackgroundColor: '',
+        stroke: labelStroke,
+        strokeWidth: 2,
+        paintFirst: 'stroke',
+        selectable: true,
+        evented: true,
+        hasControls: false,
+        hasBorders: false,
+        hoverCursor: 'grab',
+        moveCursor: 'grabbing',
+        padding: 12,
+        perPixelTargetFind: true,
+        lockScalingX: true,
+        lockScalingY: true,
+        lockRotation: true,
+        editable: false,
+        /** splitByGrapheme 会触发 Fabric 在部分版本里把 textBaseline 写成非法值 'alphabetical'（应为 alphabetic） */
+        splitByGrapheme: false,
+        textBaseline: 'alphabetic',
+        objectCaching: false,
+        borderColor: 'rgba(14, 102, 156, 0.85)',
+        cornerColor: 'rgba(14, 102, 156, 0.9)',
+        cornerStyle: 'circle',
+        transparentCorners: false,
+        cornerSize: 10,
+        data: { annId: annId, role: 'label' }
+    });
+    return tb;
+}
+
+function placeLabelNearBox(tb, box, savedLabelPos) {
+    if (savedLabelPos && typeof savedLabelPos.left === 'number' && typeof savedLabelPos.top === 'number') {
+        tb.set({ left: savedLabelPos.left, top: savedLabelPos.top });
+        tb.setCoords();
+        return;
+    }
+    if (typeof tb.initDimensions === 'function') tb.initDimensions();
+    const gap = 14;
+    const br = tb.getBoundingRect(true);
+    const ph = br.height;
+    let top = box[1] - ph - gap;
+    if (top < 4) top = box[3] + gap;
+    tb.set({ left: box[0], top: top });
+    tb.setCoords();
+}
+
+function gatherAnnotationsForSave() {
+    const rects = canvas.getObjects().filter(o => o.data && o.data.role === 'box');
+    return rects.map(rect => {
+        const d = rect.data;
+        const label = findLabelByAnnId(d.annId);
+        const boxDisplay = rectToBox(rect);
+        const boxOrig = boxDisplayToOriginal(boxDisplay);
+        const item = {
+            title: d.title || '',
+            box: boxOrig,
+            '内容': d['内容'] || '',
+            '标红': !!d['标红'],
+            '页码': d['页码'] != null ? parseInt(d['页码'], 10) : 1
+        };
+        if (label) {
+            item.labelPosition = posDisplayToOriginal({
+                left: Math.round(label.left),
+                top: Math.round(label.top)
+            });
+        }
+        item.style = {
+            rectFill: rect.fill,
+            rectStroke: rect.stroke,
+            labelFill: label ? label.fill : undefined,
+            labelStroke: label ? label.stroke : undefined,
+            labelFontSize: label ? label.fontSize : _reviewLabelFontSize
+        };
+        return item;
+    });
+}
+
+function setDrawMode(on) {
+    drawMode = !!on;
+    const btn = document.getElementById('btn-draw-mode');
+    if (btn) {
+        btn.classList.toggle('active', drawMode);
+        btn.textContent = drawMode ? '✏️ 画框中（空白处拖拽）' : '✏️ 画框模式';
+    }
+    if (!drawMode && tempRect) {
+        canvas.remove(tempRect);
+        tempRect = null;
+        drawStart = null;
+        canvas.renderAll();
+    }
+}
+
+function toggleDrawMode() {
+    setDrawMode(!drawMode);
+}
+
+var reviewFabricReady = false;
+
+/** 必须在 #annotation-canvas 为可见（非 display:none）之后再 new Fabric，否则上下层 canvas 尺寸/命中区域会错乱，表现为完全点不中对象 */
+function ensureReviewCanvas() {
+    if (reviewFabricReady) return;
+    reviewFabricReady = true;
+    initCanvas();
+}
+
+// ========== 初始化 ==========
+document.addEventListener('DOMContentLoaded', function() {
+    document.body.classList.add('page-review-editor');
+    loadRealFileList();
+    document.getElementById('file-list').addEventListener('click', async function(e) {
+        const item = e.target.closest('.file-item');
+        if (!item || !item.dataset.image) return;
+        const next = item.dataset.image;
+        if (next === currentFileImage) return;
+        if (!(await confirmSwitchFileOrSave(next))) return;
+        selectFile(next);
+    });
+
+    window.addEventListener('beforeunload', function (e) {
+        if (hasUnsavedReviewChanges()) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            if (!(e.ctrlKey && e.key === 's')) return;
+        }
+        if (e.key === 'Escape') {
+            setDrawMode(false);
+            return;
+        }
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            saveAllChanges();
+            return;
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            const ao = canvas && canvas.getActiveObject();
+            if (ao && currentFile && ao.data && (ao.data.role === 'box' || ao.data.role === 'label')) {
+                e.preventDefault();
+                removeAnnotationPair(ao);
+                clearPropertyPanel();
+            }
+        }
+    });
+
+    const cw = document.getElementById('canvas-wrapper');
+    if (cw && typeof ResizeObserver !== 'undefined') {
+        let roTimer = null;
+        new ResizeObserver(function() {
+            clearTimeout(roTimer);
+            roTimer = setTimeout(applyCanvasDisplayScale, 60);
+        }).observe(cw);
+    }
+    window.addEventListener('resize', function() {
+        clearTimeout(canvasResizeTimer);
+        canvasResizeTimer = setTimeout(applyCanvasDisplayScale, 100);
+    });
+
+    wirePropertyInputsSync();
+
+    // 导出弹窗交互
+    const exportClose = document.getElementById('export-close');
+    const exportCancel = document.getElementById('export-cancel');
+    const exportStart = document.getElementById('export-start');
+    const exportDownload = document.getElementById('export-download');
+    const exportAll = document.getElementById('export-check-all');
+    const exportList = document.getElementById('export-file-list');
+    const exportBd = document.getElementById('export-backdrop');
+    if (exportClose) exportClose.addEventListener('click', function () { setExportModalOpen(false); });
+    if (exportCancel) exportCancel.addEventListener('click', function () { setExportModalOpen(false); });
+    if (exportStart) exportStart.addEventListener('click', function () { doExportSelectedJpgs(); });
+    if (exportDownload) exportDownload.addEventListener('click', function () { downloadLastExportZip(); });
+    if (exportBd) exportBd.addEventListener('click', function (e) {
+        if (e.target === exportBd) setExportModalOpen(false);
+    });
+    if (exportAll && exportList) {
+        exportAll.addEventListener('change', function () {
+            const on = !!exportAll.checked;
+            exportList.querySelectorAll('input[type="checkbox"][data-image]').forEach(function (el) {
+                el.checked = on;
+            });
+            updateExportSelectedHint();
+        });
+        exportList.addEventListener('change', function (e) {
+            if (e.target && e.target.matches('input[type="checkbox"][data-image]')) {
+                const all = exportList.querySelectorAll('input[type="checkbox"][data-image]').length;
+                const ck = exportList.querySelectorAll('input[type="checkbox"][data-image]:checked').length;
+                exportAll.checked = all > 0 && ck === all;
+                updateExportSelectedHint();
+            }
+        });
+    }
+});
+
+function wirePropertyInputsSync() {
+    const titleEl = document.getElementById('edit-title');
+    const contentEl = document.getElementById('edit-content');
+    const redEl = document.getElementById('edit-is-red');
+    const fontEl = document.getElementById('edit-font-size');
+
+    function applyGlobalLabelFontSize(nextSize) {
+        const s = Math.max(10, Math.min(60, parseInt(nextSize, 10) || _reviewLabelFontSize));
+        _reviewLabelFontSize = s;
+        if (fontEl) fontEl.value = String(s);
+        if (canvas) {
+            canvas.getObjects().forEach(function (o) {
+                if (o && o.data && o.data.role === 'label') {
+                    o.set({ fontSize: s });
+                    if (typeof o.initDimensions === 'function') o.initDimensions();
+                    o.setCoords();
+                }
+                if (o && o.data && o.data.role === 'box') {
+                    o.data.style = Object.assign({}, o.data.style || {}, { labelFontSize: s });
+                }
+            });
+            canvas.renderAll();
+        }
+        refreshSaveDirtyUi();
+    }
+    function syncFromForm() {
+        if (!selectedBox || !selectedBox.data || selectedBox.data.role !== 'box') return;
+        const d = selectedBox.data;
+        const prevRed = !!d['标红'];
+        d.title = titleEl.value;
+        d['内容'] = contentEl.value;
+        d['标红'] = redEl.value === 'true';
+        selectedBox.set({
+            fill: d['标红'] ? 'rgba(231,76,60,0.3)' : 'rgba(52,152,219,0.3)',
+            stroke: d['标红'] ? '#e74c3c' : '#3498db'
+        });
+        d.style = Object.assign({}, d.style || {}, {
+            rectFill: selectedBox.fill,
+            rectStroke: selectedBox.stroke
+        });
+        if (prevRed !== !!d['标红']) {
+            d.style.labelFill = d['标红'] ? '#c0392b' : '#154360';
+            d.style.labelStroke = '#ffffff';
+        }
+        syncLabelFromRect(selectedBox);
+        if (canvas) canvas.renderAll();
+        refreshSaveDirtyUi();
+    }
+    titleEl.addEventListener('input', syncFromForm);
+    contentEl.addEventListener('input', syncFromForm);
+    redEl.addEventListener('change', syncFromForm);
+    if (fontEl) {
+        fontEl.addEventListener('change', function () {
+            applyGlobalLabelFontSize(fontEl.value);
+        });
+    }
+}
+
+
+/** Fabric 用 upperCanvas 的 getBoundingClientRect 换算指针；容器滚动或画布曾 display:none 时必须同步，否则点击无法选中 */
+function syncCanvasPointerGeometry() {
+    if (!canvas || typeof canvas.calcOffset !== 'function') return;
+    canvas.calcOffset();
+}
+
+var _fabricPointerSyncBound = false;
+
+function bindFabricPointerSync() {
+    if (_fabricPointerSyncBound) return;
+    _fabricPointerSyncBound = true;
+    var cw = document.getElementById('canvas-wrapper');
+    if (cw) {
+        cw.addEventListener('scroll', syncCanvasPointerGeometry, { passive: true });
+    }
+    window.addEventListener('scroll', syncCanvasPointerGeometry, { passive: true });
+}
+
+/** 缩放/边控制点使用浏览器标准斜向或双向箭头，便于辨认方向（需配合：悬停框体时不要强制覆盖 upperCanvas 的 cursor） */
+function applyFabricControlResizeCursors() {
+    if (!fabric || !fabric.Object || !fabric.Object.prototype.controls) return;
+    var c = fabric.Object.prototype.controls;
+    if (c.tl) c.tl.cursorStyle = 'nw-resize';
+    if (c.tr) c.tr.cursorStyle = 'ne-resize';
+    if (c.br) c.br.cursorStyle = 'se-resize';
+    if (c.bl) c.bl.cursorStyle = 'sw-resize';
+    if (c.mt) c.mt.cursorStyle = 'n-resize';
+    if (c.mb) c.mb.cursorStyle = 's-resize';
+    if (c.ml) c.ml.cursorStyle = 'w-resize';
+    if (c.mr) c.mr.cursorStyle = 'e-resize';
+}
+
+// ========== Canvas 初始化 ==========
+function initCanvas() {
+    applyFabricControlResizeCursors();
+    canvas = new fabric.Canvas('annotation-canvas', {
+        selection: true,
+        preserveObjectStacking: true,
+        fireRightClick: true,
+        stopContextMenu: true,
+        defaultCursor: 'default',
+        hoverCursor: 'default',
+        moveCursor: 'move',
+        targetFindTolerance: 12
+    });
+
+    bindFabricPointerSync();
+
+    // 绑定事件
+    canvas.on('selection:created', onBoxSelected);
+    canvas.on('selection:updated', onBoxSelected);
+    canvas.on('selection:cleared', onBoxDeselected);
+    canvas.on('object:moving', onBoxModified);
+    canvas.on('object:scaling', onBoxModified);
+    canvas.on('mouse:down', onCanvasMouseDown);
+    canvas.on('mouse:move', onCanvasMouseMove);
+    canvas.on('mouse:up', onCanvasMouseUp);
+
+    bindAnnotationPointerStyles();
+    bindCanvasDirtyTracking();
+}
+
+var _annotationCursorTimer = null;
+
+/** 根据当前指针下的对象设置上层 canvas 光标（绕开 Fabric 内部覆盖） */
+function updateAnnotationHoverCursor(opt) {
+    if (!canvas) return;
+    var upper = canvas.upperCanvasEl;
+    if (!upper) return;
+    if (drawMode && currentFile) {
+        upper.style.cursor = 'crosshair';
+        return;
+    }
+    var target = null;
+    try {
+        target = typeof canvas.findTarget === 'function' ? canvas.findTarget(opt.e) : opt.target;
+    } catch (err) {
+        target = opt.target;
+    }
+    if (!target || !target.data) {
+        upper.style.cursor = 'default';
+        return;
+    }
+    if (target.data.role === 'label') {
+        upper.style.cursor = 'grab';
+        return;
+    }
+    if (target.data.role === 'box') {
+        /* 不设置：缩放点使用各 control 的 cursorStyle；框体移动由 rect 的 hoverCursor/moveCursor 负责 */
+        return;
+    }
+    upper.style.cursor = 'default';
+}
+
+function bindAnnotationPointerStyles() {
+    if (!canvas) return;
+    var upper = canvas.upperCanvasEl;
+    if (!upper) return;
+
+    canvas.on('mouse:down', function(opt) {
+        if (drawMode) return;
+        if (opt.target && opt.target.data && opt.target.data.role === 'label') {
+            upper.style.cursor = 'grabbing';
+        }
+    });
+
+    upper.addEventListener('mouseleave', function() {
+        upper.style.cursor = 'default';
+    });
+}
+
+function applyRectInteractionStyle(rect) {
+    if (!rect) return;
+    rect.set({
+        hoverCursor: 'move',
+        moveCursor: 'move',
+        evented: true,
+        transparentCorners: false,
+        cornerStyle: 'circle',
+        borderColor: 'rgba(41, 128, 185, 0.9)',
+        cornerColor: 'rgba(41, 128, 185, 1)',
+        cornerSize: 12
+    });
+}
+
+/** 保证文字始终叠在矩形之上，避免选框后挡住文字导致点不中 */
+function bringAllLabelsToFront() {
+    if (!canvas) return;
+    var labels = canvas.getObjects().filter(function(o) {
+        return o.data && o.data.role === 'label';
+    });
+    labels.forEach(function(l) {
+        canvas.bringToFront(l);
+    });
+    canvas.renderAll();
+}
+
+function onCanvasMouseDown(opt) {
+    if (!drawMode || !currentFile) return;
+    if (opt.target) return;
+    const p = canvas.getPointer(opt.e);
+    drawStart = { x: p.x, y: p.y };
+    tempRect = new fabric.Rect({
+        left: p.x,
+        top: p.y,
+        width: 0,
+        height: 0,
+        fill: 'rgba(52, 152, 219, 0.2)',
+        stroke: '#3498db',
+        strokeWidth: 2,
+        strokeUniform: true,
+        selectable: false,
+        evented: false,
+    });
+    canvas.add(tempRect);
+}
+
+function onCanvasMouseMove(opt) {
+    clearTimeout(_annotationCursorTimer);
+    _annotationCursorTimer = setTimeout(function() {
+        updateAnnotationHoverCursor(opt);
+    }, 0);
+
+    if (!drawMode || !drawStart || !tempRect) return;
+    const p = canvas.getPointer(opt.e);
+    const x = Math.min(drawStart.x, p.x);
+    const y = Math.min(drawStart.y, p.y);
+    const w = Math.abs(p.x - drawStart.x);
+    const h = Math.abs(p.y - drawStart.y);
+    tempRect.set({ left: x, top: y, width: w, height: h });
+    canvas.renderAll();
+}
+
+function onCanvasMouseUp() {
+    if (!drawMode || !tempRect) return;
+    const left = tempRect.left;
+    const top = tempRect.top;
+    const w = tempRect.width;
+    const h = tempRect.height;
+    canvas.remove(tempRect);
+    tempRect = null;
+    drawStart = null;
+    canvas.renderAll();
+
+    if (w < 8 || h < 8) {
+        return;
+    }
+
+    const pageNum = pageHintFromCurrentFile();
+    const annId = newAnnId();
+    const box = [
+        Math.round(left),
+        Math.round(top),
+        Math.round(left + w),
+        Math.round(top + h)
+    ];
+    const rect = new fabric.Rect({
+        left: box[0],
+        top: box[1],
+        width: box[2] - box[0],
+        height: box[3] - box[1],
+        fill: 'rgba(52,152,219,0.3)',
+        stroke: '#3498db',
+        strokeWidth: 2,
+        strokeUniform: true,
+        selectable: true,
+        hasControls: true,
+        data: {
+            title: '新字段',
+            '内容': '',
+            '标红': false,
+            '页码': pageNum,
+            box: box,
+            role: 'box',
+            annId: annId
+        }
+    });
+    applyRectInteractionStyle(rect);
+    const tb = createLabelTextbox(rect.data, annId, box);
+    canvas.add(rect);
+    canvas.add(tb);
+    placeLabelNearBox(tb, box, null);
+    bringAllLabelsToFront();
+    canvas.setActiveObject(rect);
+    canvas.renderAll();
+    onBoxSelected({ selected: [rect] });
+    setDrawMode(false);
+}
+
+// ========== 文件列表功能 ==========
+async function loadRealFileList() {
+    try {
+        const response = await fetch(`${TIE_BASE}/api/review/files`);
+        const data = await response.json();
+        
+        if (data.files && data.files.length > 0) {
+            realFiles = data.files;
+            renderRealFileList(realFiles);
+        } else {
+            showEmptyState();
+        }
+    } catch (error) {
+        console.error('加载文件列表失败:', error);
+        alert('加载文件列表失败，请检查网络连接');
+        showEmptyState();
+    }
+}
+
+function renderRealFileList(list) {
+    const container = document.getElementById('file-list');
+    let html = '';
+    
+    list.forEach((file) => {
+        const statusIcon = file.has_review_json ? '💾' : (file.has_json ? '✅' : '⚠️');
+        const statusText = file.has_review_json ? '已保存复核' : (file.has_json ? '已解析' : '未解析');
+        const active = file.image === currentFileImage ? 'active' : '';
+        
+        html += `
+            <div class="file-item ${active}" data-image="${escapeAttr(file.image)}">
+                <div class="file-name">${file.name}</div>
+                <div class="file-status">
+                    <span class="status-icon">${statusIcon}</span>
+                    <span>${statusText}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function showEmptyState() {
+    const container = document.getElementById('file-list');
+    container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 10px;">📂</div>
+            <div>暂无可复核的文件</div>
+            <div style="font-size: 12px; margin-top: 10px;">请先上传并解析 PDF 文件</div>
+        </div>
+    `;
+}
+
+function filterFiles() {
+    const keyword = document.getElementById('file-search').value.toLowerCase().trim();
+    const list = keyword
+        ? realFiles.filter(f => f.name.toLowerCase().includes(keyword))
+        : realFiles;
+    renderRealFileList(list);
+}
+
+function selectFile(imageFilename) {
+    const file = realFiles.find(f => f.image === imageFilename);
+    if (!file) return;
+    
+    currentFileImage = imageFilename;
+    currentFile = file;
+    
+    const keyword = document.getElementById('file-search').value.toLowerCase().trim();
+    const list = keyword
+        ? realFiles.filter(f => f.name.toLowerCase().includes(keyword))
+        : realFiles;
+    renderRealFileList(list);
+    
+    document.getElementById('canvas-placeholder').style.display = 'none';
+    document.getElementById('annotation-canvas').style.display = 'block';
+
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+            ensureReviewCanvas();
+            syncCanvasPointerGeometry();
+            loadImageAndAnnotations();
+        });
+    });
+}
+
+// ========== 画布：逻辑与显示均为原图像素尺寸；区域小于图片时可横/纵滚动 ==========
+function applyCanvasDisplayScale() {
+    if (!canvas) return;
+    const bg = canvas.backgroundImage;
+    if (!bg) return;
+    const naturalW = bg.width;
+    const naturalH = bg.height;
+    if (!naturalW || !naturalH) return;
+
+    canvas.setDimensions({ width: naturalW, height: naturalH });
+    canvas.renderAll();
+    syncCanvasPointerGeometry();
+}
+
+function scheduleFitCanvas() {
+    requestAnimationFrame(function() {
+        applyCanvasDisplayScale();
+        requestAnimationFrame(applyCanvasDisplayScale);
+    });
+}
+
+// ========== 图像和 JSON 加载 ==========
+async function loadImageAndAnnotations() {
+    if (!currentFile || !currentFile.image) {
+        alert('该文件没有对应的图片');
+        return;
+    }
+
+    const loadToken = ++_reviewLoadToken;
+
+    try {
+        // 默认加载预览图（若存在），显著降低大图解码与 Fabric 渲染卡顿
+        const imageUrl = `${TIE_BASE}/api/review/image/${encodeURIComponent(currentFile.image)}?preview=1&_=${Date.now()}`;
+        fabric.Image.fromURL(imageUrl, function(img) {
+            if (loadToken !== _reviewLoadToken) return;
+            canvas.clear();
+            const nw = img.width;
+            const nh = img.height;
+            _reviewDisplaySize = (nw && nh) ? [nw, nh] : null;
+            canvas.setDimensions({ width: nw, height: nh });
+            canvas.setBackgroundImage(img, function () {
+                if (loadToken !== _reviewLoadToken) return;
+                canvas.renderAll();
+                syncCanvasPointerGeometry();
+            });
+            canvas.renderAll();
+            syncCanvasPointerGeometry();
+            requestAnimationFrame(syncCanvasPointerGeometry);
+            loadAnnotationsFromServer(loadToken);
+        }, {
+            crossOrigin: 'anonymous'
+        });
+    } catch (error) {
+        console.error('加载图片失败:', error);
+        alert('加载图片失败');
+    }
+}
+
+async function loadAnnotationsFromServer(loadToken) {
+    try {
+        if (loadToken !== _reviewLoadToken) return;
+        canvas.getObjects().forEach(obj => canvas.remove(obj));
+        canvas.discardActiveObject();
+        canvas.renderAll();
+
+        const fetchOpts = { cache: 'no-store', credentials: 'same-origin' };
+        const annoUrl = `${TIE_BASE}/api/review/annotations-for/${encodeURIComponent(currentFile.image)}?_=${Date.now()}`;
+        const response = await fetch(annoUrl, fetchOpts);
+        if (loadToken !== _reviewLoadToken) return;
+
+        if (!response.ok) {
+            renderRealAnnotations([]);
+            scheduleFitCanvas();
+            return;
+        }
+
+        const raw = await response.json();
+        if (loadToken !== _reviewLoadToken) return;
+        if (raw && raw.error) {
+            renderRealAnnotations([]);
+            scheduleFitCanvas();
+            return;
+        }
+        // 计算标注坐标缩放比例：标注以原图像素为准，画布用预览图尺寸显示
+        try {
+            const s = raw && (raw.image_size || (raw.settings && raw.settings.image_size)) ? (raw.image_size || raw.settings.image_size) : null;
+            if (Array.isArray(s) && s.length === 2 && isFinite(s[0]) && isFinite(s[1]) && _reviewDisplaySize) {
+                _reviewOrigSize = [parseInt(s[0], 10), parseInt(s[1], 10)];
+                _reviewScaleX = _reviewOrigSize[0] ? (_reviewDisplaySize[0] / _reviewOrigSize[0]) : 1;
+                _reviewScaleY = _reviewOrigSize[1] ? (_reviewDisplaySize[1] / _reviewOrigSize[1]) : 1;
+            } else {
+                _reviewOrigSize = null;
+                _reviewScaleX = 1;
+                _reviewScaleY = 1;
+            }
+        } catch (e) {
+            _reviewOrigSize = null;
+            _reviewScaleX = 1;
+            _reviewScaleY = 1;
+        }
+
+        // 每个文件自己的统一字号：优先读 review.json 顶层 settings
+        try {
+            const s = raw && raw.settings ? raw.settings : null;
+            const fs = s && s.labelFontSize != null ? parseInt(s.labelFontSize, 10) : null;
+            if (fs && isFinite(fs)) {
+                _reviewLabelFontSize = Math.max(10, Math.min(60, fs));
+            } else {
+                _reviewLabelFontSize = 30;
+            }
+            const fontEl = document.getElementById('edit-font-size');
+            if (fontEl) fontEl.value = String(_reviewLabelFontSize);
+        } catch (e) {
+            _reviewLabelFontSize = 30;
+        }
+        if (raw._review_source) {
+            console.info('[数据复核] 已从服务器加载标注文件:', raw._review_source.file,
+                '用户ID:', raw._review_source.userId, 'mtime:', raw._review_source.mtime);
+        }
+        renderRealAnnotations(raw);
+        scheduleFitCanvas();
+    } catch (error) {
+        console.error('加载 JSON 失败:', error);
+        if (loadToken !== _reviewLoadToken) return;
+        renderRealAnnotations([]);
+        scheduleFitCanvas();
+    }
+}
+
+function renderRealAnnotations(raw) {
+    canvas.getObjects().forEach(obj => canvas.remove(obj));
+    
+    const annotations = normalizeAnnotationList(raw);
+    annIdSeq = 0;
+    
+    annotations.forEach((item, idx) => {
+        const box = boxOriginalToDisplay(item.box || []);
+        if (box.length !== 4) {
+            console.warn('无效的坐标数据:', item);
+            return;
+        }
+        
+        const annId = newAnnId();
+        const st = item.style || {};
+        const isRed = !!item['标红'];
+        const rectFill = st.rectFill != null && st.rectFill !== '' ? st.rectFill : (isRed ? 'rgba(231,76,60,0.3)' : 'rgba(52,152,219,0.3)');
+        const rectStroke = st.rectStroke != null && st.rectStroke !== '' ? st.rectStroke : (isRed ? '#e74c3c' : '#3498db');
+        const rect = new fabric.Rect({
+            left: box[0],
+            top: box[1],
+            width: box[2] - box[0],
+            height: box[3] - box[1],
+            fill: rectFill,
+            stroke: rectStroke,
+            strokeWidth: 2,
+            strokeUniform: true,
+            selectable: true,
+            hasControls: true,
+            data: {
+                title: item.title,
+                '内容': item['内容'],
+                '标红': item['标红'],
+                '页码': item['页码'],
+                style: item.style ? Object.assign({}, item.style) : {},
+                originalIndex: idx,
+                role: 'box',
+                annId: annId,
+                box: box.slice(), // 画布坐标（预览图坐标）
+                originalBox: (item.box || []).slice() // 原图坐标
+            }
+        });
+        applyRectInteractionStyle(rect);
+        
+        const tb = createLabelTextbox(item, annId, box);
+        canvas.add(rect);
+        canvas.add(tb);
+        placeLabelNearBox(tb, box, posOriginalToDisplay(item.labelPosition || null));
+    });
+    
+    bringAllLabelsToFront();
+    canvas.renderAll();
+    syncCanvasPointerGeometry();
+    syncReviewSavedBaseline();
+}
+
+// ========== 事件处理 ==========
+function onBoxSelected(e) {
+    const obj = e.selected[0];
+    if (!obj) {
+        clearPropertyPanel();
+        return;
+    }
+    if (obj.type === 'activeSelection') {
+        clearPropertyPanel();
+        return;
+    }
+    const rect = getAnnotationRect(obj);
+    if (!rect || rect.data.role !== 'box') {
+        clearPropertyPanel();
+        return;
+    }
+    selectedBox = rect;
+    const data = rect.data;
+    
+    document.getElementById('edit-title').value = data.title || '';
+    document.getElementById('edit-content').value = data['内容'] || '';
+    document.getElementById('edit-is-red').value = (data['标红'] === true) ? 'true' : 'false';
+    document.getElementById('edit-page').value = data['页码'] != null ? data['页码'] : '';
+    const fs = (data.style && data.style.labelFontSize != null) ? parseInt(data.style.labelFontSize, 10) : _reviewLabelFontSize;
+    document.getElementById('edit-font-size').value = String(isFinite(fs) ? fs : _reviewLabelFontSize);
+    
+    updateCoordinatesDisplay(rectToBox(rect));
+    
+    enablePropertyInputs(true);
+    bringAllLabelsToFront();
+}
+
+function onBoxDeselected() {
+    selectedBox = null;
+    clearPropertyPanel();
+}
+
+function onBoxModified(e) {
+    const t = e.target;
+    if (!t || !t.data) return;
+    if (t.data.role === 'box') {
+        t.data.box = rectToBox(t);
+        t.data.originalBox = boxDisplayToOriginal(t.data.box);
+        if (selectedBox === t) {
+            updateCoordinatesDisplay(t.data.box);
+        }
+    } else if (t.data.role === 'label') {
+        t.setCoords();
+    }
+}
+
+// ========== 辅助函数 ==========
+function updateCoordinatesDisplay(box) {
+    const b = boxDisplayToOriginal(box);
+    document.getElementById('coord-x1').textContent = b[0];
+    document.getElementById('coord-y1').textContent = b[1];
+    document.getElementById('coord-x2').textContent = b[2];
+    document.getElementById('coord-y2').textContent = b[3];
+}
+
+function enablePropertyInputs(enabled) {
+    document.getElementById('edit-title').disabled = !enabled;
+    document.getElementById('edit-content').disabled = !enabled;
+    document.getElementById('edit-is-red').disabled = !enabled;
+    document.getElementById('edit-page').disabled = !enabled;
+    document.getElementById('edit-font-size').disabled = !enabled;
+    document.getElementById('btn-delete').disabled = !enabled;
+}
+
+function clearPropertyPanel() {
+    document.getElementById('edit-title').value = '';
+    document.getElementById('edit-content').value = '';
+    document.getElementById('edit-is-red').value = 'false';
+    document.getElementById('edit-page').value = '';
+    updateCoordinatesDisplay(['-', '-', '-', '-']);
+    enablePropertyInputs(false);
+}
+
+// ========== 操作按钮 ==========
+function addNewBox() {
+    if (!currentFile) {
+        alert('请先选择一个文件！');
+        return;
+    }
+    const pageNum = pageHintFromCurrentFile();
+    const annId = newAnnId();
+    const box = [100, 100, 300, 150];
+    const rect = new fabric.Rect({
+        left: 100,
+        top: 100,
+        width: 200,
+        height: 50,
+        fill: 'rgba(52,152,219,0.3)',
+        stroke: '#3498db',
+        strokeWidth: 2,
+        strokeUniform: true,
+        selectable: true,
+        hasControls: true,
+        data: {
+            title: '新字段',
+            '内容':'',
+            '标红':false,
+            '页码': pageNum,
+            box: box,
+            role: 'box',
+            annId: annId
+        }
+    });
+    applyRectInteractionStyle(rect);
+    const tb = createLabelTextbox(rect.data, annId, box);
+    canvas.add(rect);
+    canvas.add(tb);
+    placeLabelNearBox(tb, box, null);
+    bringAllLabelsToFront();
+    canvas.setActiveObject(rect);
+    canvas.renderAll();
+    onBoxSelected({ selected: [rect] });
+}
+
+function deleteCurrentBox() {
+    if (!selectedBox) {
+        alert('请先选择一个标注框！');
+        return;
+    }
+    
+    if (confirm('确定要删除这个标注框吗？')) {
+        removeAnnotationPair(selectedBox);
+        clearPropertyPanel();
+    }
+}
+
+/**
+ * 保存当前画布全部标注到服务器（*.review.json + 同步 *.json）。
+ * @param options 可选参数；若含 silentSuccess: true 则不弹出成功提示（用于切换文件前自动保存）
+ * @returns {Promise<boolean>}
+ */
+async function saveAllChanges(options) {
+    options = options || {};
+    if (!currentFile) {
+        if (!options.silentSuccess) alert('请先选择一个文件！');
+        return false;
+    }
+
+    const saveFilename = currentFile.review_json || deriveReviewJsonName(currentFile.image);
+    const items = gatherAnnotationsForSave();
+    const payload = buildReviewPayload(items);
+
+    try {
+        const response = await fetch(`${TIE_BASE}/api/review/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: saveFilename, annotations: payload })
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body.success) {
+            alert('保存失败：' + (body.error || response.statusText));
+            return false;
+        }
+        currentFile.has_review_json = true;
+        if (!currentFile.review_json) {
+            currentFile.review_json = saveFilename;
+        }
+        const keyword = document.getElementById('file-search').value.toLowerCase().trim();
+        const list = keyword
+            ? realFiles.filter(f => f.name.toLowerCase().includes(keyword))
+            : realFiles;
+        renderRealFileList(list);
+        if (!options.silentSuccess) {
+            showReviewToast('已保存 ' + items.length + ' 个标注到服务器');
+        }
+        syncReviewSavedBaseline();
+        return true;
+    } catch (e) {
+        alert('保存失败：' + e.message);
+        return false;
+    }
+}
+
+function exportData() {
+    renderExportFileList();
+    const all = document.getElementById('export-check-all');
+    const listEl = document.getElementById('export-file-list');
+    const dl = document.getElementById('export-download');
+    if (all && listEl) {
+        const total = listEl.querySelectorAll('input[type="checkbox"][data-image]').length;
+        const checked = listEl.querySelectorAll('input[type="checkbox"][data-image]:checked').length;
+        all.checked = total > 0 && checked === total;
+    }
+    _lastExportedImages = [];
+    if (dl) dl.disabled = true;
+    setExportProgress(0, 0);
+    setExportModalOpen(true);
+}
+</script>
+{% endblock %}

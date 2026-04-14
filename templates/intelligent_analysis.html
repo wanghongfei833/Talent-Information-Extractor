@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block title %}智能解析 - 人才信息解析系统{% endblock %}
+
+{% block content %}
+<div class="upload-page">
+    <h1>🔍 智能文档解析</h1>
+    
+    <div class="upload-grid">
+        <!-- 左侧：文件选择 -->
+        <div class="left-panel">
+            <h3>📁 选择文件</h3>
+            
+            <!-- 模式切换 -->
+            <div class="upload-mode-switch">
+                <button class="mode-btn active" data-mode="single">单文件上传</button>
+                <button class="mode-btn" data-mode="multiple">多文件上传</button>
+                <button class="mode-btn" data-mode="folder">文件夹上传</button>
+            </div>
+            
+            <!-- 单文件上传区域 -->
+            <div id="single-file-area" class="file-area active">
+                <div class="file-drop-zone" onclick="document.getElementById('file').click()">
+                    <div class="drop-icon">📄</div>
+                    <div class="drop-text">点击或拖拽上传单个文件</div>
+                    <div class="drop-hint">支持 PDF、PNG、JPG 等格式</div>
+                </div>
+                <input type="file" id="file" accept=".pdf,.png,.jpg,.jpeg,.bmp,.gif,.tiff,.webp" style="display: none;" onchange="handleFileSelect(event)">
+                <div id="single-file-preview" class="file-preview"></div>
+            </div>
+            
+            <!-- 多文件上传区域 -->
+            <div id="multiple-file-area" class="file-area">
+                <div class="file-drop-zone" onclick="document.getElementById('multiple-files').click()">
+                    <div class="drop-icon">📑</div>
+                    <div class="drop-text">点击或拖拽上传多个文件</div>
+                    <div class="drop-hint">支持批量处理，提高效率</div>
+                </div>
+                <input type="file" id="multiple-files" multiple accept=".pdf,.png,.jpg,.jpeg,.bmp,.gif,.tiff,.webp" style="display: none;" onchange="handleMultipleFileSelect(event)">
+                <div id="multiple-files-preview" class="file-preview"></div>
+            </div>
+            
+            <!-- 文件夹上传区域 -->
+            <div id="folder-file-area" class="file-area">
+                <div class="file-drop-zone folder-drop" onclick="document.getElementById('folder-input').click()">
+                    <div class="drop-icon">📂</div>
+                    <div class="drop-text">点击选择整个文件夹</div>
+                    <div class="drop-hint">自动处理文件夹内所有文件</div>
+                </div>
+                <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelect(event)">
+                <div id="folder-files-preview" class="file-preview"></div>
+            </div>
+        </div>
+        
+        <!-- 右侧：解析配置和日志 -->
+        <div class="right-panel">
+            <div class="config-section">
+                <h3>🎯 解析配置</h3>
+                <div class="form-group">
+                    <label for="document-type">文档类型 *</label>
+                    <select id="document-type" class="form-control">
+                        <option value="">请选择文档类型</option>
+                        <option value="1">1 - 有效身份证件</option>
+                        <option value="2">2 - 学历学位</option>
+                        <option value="3">3 - 工作证明</option>
+                        <option value="4-1">4-1 - 项目证明(项目立项书、结题报告)</option>
+                        <option value="4-2">4-2 - 项目证明(论文证明)</option>
+                        <option value="4-3">4-3 - 项目证明(专利)</option>
+                        <option value="4-4">4-4 - 项目证明(奖项)</option>
+                        <option value="5-1">5-1 - 论文</option>
+                        <option value="5-2">5-2 - 重要学术会议邀请报告</option>
+                        <option value="5-3">5-3 - 著作</option>
+                        <option value="5-4">5-4 - 研究技术报告</option>
+                        <option value="5-5">5-5 - 专利</option>
+                        <option value="5-6">5-6 - 奖项</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="target-name">目标姓名<span id="target-name-required-star"> *</span></label>
+                    <input type="text" id="target-name" placeholder="请输入要查找的人才姓名">
+                    <small id="target-name-hint" style="color: #e74c3c;">* 必填项，请输入要查找的人才姓名</small>
+                </div>
+            </div>
+
+            <!-- 存储占用提示 -->
+            <div class="config-section">
+                <h3>💾 存储占用</h3>
+                <div id="storage-usage-box" style="background:#f8f9fa;border-radius:8px;padding:12px 14px;border:1px solid #ddd;">
+                    <div style="color:#666;">正在检查当前占用...</div>
+                </div>
+            </div>
+            
+            <!-- 日志区域 -->
+            <div class="config-section">
+                <h3>📝 处理日志</h3>
+                <div id="log-container" style="background: #f8f9fa; border-radius: 8px; padding: 15px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; border: 1px solid #ddd;">
+                    <div style="color: #666;">等待操作...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 底部操作栏 -->
+    <div class="upload-actions">
+        <div id="selected-files-info" class="selected-files-info">
+            <span class="info-icon">ℹ️</span>
+            <span class="info-text">尚未选择任何文件</span>
+        </div>
+        <button id="submit-btn" class="btn btn-primary btn-lg" disabled onclick="startAnalysis()">
+            🚀 开始解析
+        </button>
+        <button class="btn btn-success btn-lg" onclick="startReview()">
+            🔍 数据复核
+        </button>
+        <button class="btn btn-secondary" onclick="clearAllFiles()">
+            🧹 清理
+        </button>
+    </div>
+    
+    <!-- 进度显示区域 -->
+    <div id="progress-container" style="display: none; margin-top: 30px;">
+        <h3>📈 解析进度</h3>
+        <div id="progress-bar-container" style="background: #f0f0f0; border-radius: 8px; overflow: hidden; margin: 20px 0;">
+            <div id="progress-bar" style="width: 0%; height: 30px; background: linear-gradient(90deg, #27ae60, #2ecc71); transition: width 0.3s;"></div>
+        </div>
+        <div id="progress-text" style="text-align: center; color: #666;">准备中...</div>
+        <div id="progress-details" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; max-height: 300px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<script>
+let selectedFiles = [];
+let storageLimitBytes = 1024 * 1024 * 1024; // 1GB
+// 本项目挂载在 /TIE 下（用于生成绝对请求路径，避免相对路径落到 /TIE/intelligent-analysis/...）
+const TIE_BASE = '/TIE';
+
+// 文件选择处理
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        selectedFiles = [file];
+        updatePreview('single-file-preview', [file]);
+        updateSubmitButton();
+    }
+}
+
+function handleMultipleFileSelect(event) {
+    const files = Array.from(event.target.files);
+    if (files.length > 0) {
+        selectedFiles = files;
+        updatePreview('multiple-files-preview', files);
+        updateSubmitButton();
+    }
+}
+
+function handleFolderSelect(event) {
+    const files = Array.from(event.target.files);
+    if (files.length > 0) {
+        selectedFiles = files;
+        updatePreview('folder-files-preview', files, true);
+        updateSubmitButton();
+    }
+}
+
+function updatePreview(containerId, files, showPath = false) {
+    const container = document.getElementById(containerId);
+    let html = '';
+    files.forEach((file, index) => {
+        const icon = getFileIcon(file.name);
+        const name = showPath ? (file.webkitRelativePath || file.name) : file.name;
+        html += `
+            <div class="file-item">
+                <span class="file-icon">${icon}</span>
+                <div class="file-info">
+                    <div class="file-name">${name}</div>
+                    <div class="file-size">${formatFileSize(file.size)}</div>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function updateSubmitButton() {
+    const submitBtn = document.getElementById('submit-btn');
+    const infoText = document.getElementById('selected-files-info');
+    
+    if (selectedFiles.length === 0) {
+        submitBtn.disabled = true;
+        infoText.innerHTML = '<span class="info-icon">ℹ️</span><span class="info-text">尚未选择任何文件</span>';
+    } else {
+        submitBtn.disabled = false;
+        const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+        infoText.innerHTML = `
+            <span class="info-icon">✅</span>
+            <span class="info-text">
+                已选择 <strong>${selectedFiles.length}</strong> 个文件，
+                总大小 <strong>${formatFileSize(totalSize)}</strong>
+            </span>
+        `;
+    }
+}
+
+async function refreshStorageUsage() {
+    const box = document.getElementById('storage-usage-box');
+    if (!box) return;
+    try {
+        const resp = await fetch(`${TIE_BASE}/api/storage/usage`, { cache: 'no-store', credentials: 'same-origin' });
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok || !body) throw new Error(body.error || resp.statusText || '检查失败');
+        const used = body.used_bytes || 0;
+        const limit = body.limit_bytes || storageLimitBytes;
+        const over = !!body.over_limit;
+        const usedTxt = formatFileSize(used);
+        const limitTxt = formatFileSize(limit);
+        box.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <div>
+                    <div style="font-weight:700;color:#2c3e50;">当前占用：${usedTxt}</div>
+                    <div style="font-size:12px;color:#666;">上限：${limitTxt}（超过会影响继续处理与导出）</div>
+                </div>
+                <div style="font-weight:700;color:${over ? '#e74c3c' : '#27ae60'};">
+                    ${over ? '已超限' : '正常'}
+                </div>
+            </div>
+            ${over ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:#fff0f0;border:1px solid #f5c2c2;color:#b02a37;">
+                当前用户项目占用已超过 1GB，请点击页面底部「清理」按钮进行清理后再继续。
+            </div>` : ``}
+        `;
+    } catch (e) {
+        box.innerHTML = `<div style="color:#e74c3c;">存储占用检查失败：${e.message}</div>`;
+    }
+}
+
+/** 仅清空当前页的文件选择与预览（切换单文件/多文件/文件夹模式时用，不删服务器文件） */
+function resetLocalFileSelection() {
+    selectedFiles = [];
+    ['file', 'multiple-files', 'folder-input'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+    ['single-file-preview', 'multiple-files-preview', 'folder-files-preview'].forEach(id => {
+        const preview = document.getElementById(id);
+        if (preview) preview.innerHTML = '';
+    });
+    updateSubmitButton();
+}
+
+async function clearAllFiles() {
+    // 每次都要求用户确认（不只是清空日志：还会删除该用户目录下残存文件）
+    const ok1 = window.confirm('确认要清理当前用户的项目文件吗？\\n\\n将删除：已上传文件、解析中间产物、标注/导出文件等。\\n（此操作不可恢复）');
+    if (!ok1) return;
+    const ok2 = window.confirm('再次确认：确定要执行清理？');
+    if (!ok2) return;
+
+    try {
+        const resp = await fetch(`${TIE_BASE}/api/storage/clear`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirm: true }),
+            credentials: 'same-origin'
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok || !body.success) {
+            throw new Error(body.error || resp.statusText || '清理失败');
+        }
+        // 清理前端选择/预览/日志
+        selectedFiles = [];
+        ['file', 'multiple-files', 'folder-input'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input) input.value = '';
+        });
+        ['single-file-preview', 'multiple-files-preview', 'folder-files-preview'].forEach(id => {
+            const preview = document.getElementById(id);
+            if (preview) preview.innerHTML = '';
+        });
+        updateSubmitButton();
+        clearLogs();
+        addLog(`已清理完成：删除 ${body.deleted_files || 0} 个文件，释放 ${formatFileSize(body.freed_bytes || 0)}`, 'warning');
+        await refreshStorageUsage();
+    } catch (e) {
+        addLog('清理失败：' + e.message, 'error');
+        alert('清理失败：' + e.message);
+    }
+}
+
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const icons = {
+        'pdf': '📄',
+        'png': '🖼️',
+        'jpg': '🖼️',
+        'jpeg': '🖼️',
+        'bmp': '🖼️',
+        'gif': '🖼️',
+        'tiff': '🖼️',
+        'webp': '🖼️'
+    };
+    return icons[ext] || '📄';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// 日志功能
+const logContainer = document.getElementById('log-container');
+
+function addLog(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const colors = {
+        'info': '#666',
+        'success': '#27ae60',
+        'warning': '#f39c12',
+        'error': '#e74c3c'
+    };
+    
+    const logEntry = document.createElement('div');
+    logEntry.style.color = colors[type] || colors['info'];
+    logEntry.style.marginBottom = '5px';
+    logEntry.textContent = `[${timestamp}] ${message}`;
+    
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function clearLogs() {
+    logContainer.innerHTML = '<div style="color: #666;">等待操作...</div>';
+}
+
+// 模式切换
+document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.file-area').forEach(area => area.classList.remove('active'));
+        
+        this.classList.add('active');
+        const mode = this.dataset.mode;
+        document.getElementById(mode + '-file-area').classList.add('active');
+        
+        // 切换模式只重置本地选文件状态；勿调用 clearAllFiles()（那会强制二次确认并清空服务器，逻辑错误）
+        resetLocalFileSelection();
+        disableOtherInputs(mode);
+    });
+});
+
+// 有效身份证件(1) 时目标姓名为选填，其余类型为必填
+function syncTargetNameFieldUI() {
+    const docType = document.getElementById('document-type').value;
+    const optional = docType === '1';
+    const star = document.getElementById('target-name-required-star');
+    const hint = document.getElementById('target-name-hint');
+    if (optional) {
+        star.style.display = 'none';
+        hint.style.color = '#666';
+        hint.textContent = '选择「有效身份证件」时此项为选填；其他文档类型须填写要查找的人才姓名。';
+    } else {
+        star.style.display = 'inline';
+        hint.style.color = '#e74c3c';
+        hint.textContent = '* 必填项，请输入要查找的人才姓名';
+    }
+}
+
+document.getElementById('document-type').addEventListener('change', syncTargetNameFieldUI);
+
+// 页面加载时检查占用
+document.addEventListener('DOMContentLoaded', function () {
+    syncTargetNameFieldUI();
+    refreshStorageUsage();
+});
+
+function disableOtherInputs(currentMode) {
+    ['file', 'multiple-files', 'folder-input'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.disabled = true;
+    });
+    
+    const currentInput = document.getElementById(currentMode === 'single' ? 'file' : 
+                          currentMode === 'multiple' ? 'multiple-files' : 'folder-input');
+    if (currentInput) currentInput.disabled = false;
+}
+
+// 开始解析
+async function startAnalysis() {
+    const docType = document.getElementById('document-type').value;
+    const targetName = document.getElementById('target-name').value.trim();
+    
+    // 1. 检查是否选择了文件
+    if (selectedFiles.length === 0) {
+        addLog('错误：请选择要解析的文件！', 'error');
+        alert('请先选择要解析的文件！');
+        return;
+    }
+    
+    // 2. 检查文档类型是否选中
+    if (!docType) {
+        addLog('错误：请选择文档类型！', 'error');
+        alert('请选择文档类型！');
+        return;
+    }
+    
+    // 3. 目标姓名：除「有效身份证件」(1) 外必填
+    if (!targetName && docType !== '1') {
+        addLog('错误：请填写目标姓名！', 'error');
+        alert('当前文档类型下，目标姓名为必填项，请填写！');
+        return;
+    }
+    
+    // 清空日志
+    clearLogs();
+    addLog(`开始解析任务`, 'info');
+    addLog(`文档类型：${getDocTypeName(docType)}`, 'info');
+    addLog(targetName ? `目标姓名：${targetName}` : '目标姓名：（未填写，有效身份证件可不填）', 'info');
+    addLog(`文件数量：${selectedFiles.length}`, 'info');
+    
+    selectedFiles.forEach((file, index) => {
+        addLog(`[${index + 1}/${selectedFiles.length}] ${file.name} (${formatFileSize(file.size)})`, 'info');
+    });
+    
+    // 显示进度条
+    document.getElementById('progress-container').style.display = 'block';
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('progress-text').textContent = '准备上传...';
+    
+    // 禁用按钮防止重复点击
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    
+    try {
+        // 逐个上传和处理文件
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            await uploadAndProcessFile(file, i + 1, selectedFiles.length, docType, targetName);
+        }
+        
+        addLog('\n✅ 所有文件处理完成！', 'success');
+        document.getElementById('progress-text').textContent = '处理完成';
+        document.getElementById('progress-bar').style.width = '100%';
+        
+    } catch (error) {
+        addLog(`❌ 处理过程中出现错误：${error.message}`, 'error');
+        document.getElementById('progress-text').textContent = '处理失败';
+    } finally {
+        // 恢复按钮状态
+        submitBtn.disabled = false;
+    }
+}
+
+// 上传并处理单个文件
+async function uploadAndProcessFile(file, index, total, docType, targetName) {
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('doc_type', docType);
+        formData.append('target_name', targetName);
+        
+        addLog(`\n⬆️ 正在上传第 ${index}/${total} 个文件：${file.name}`, 'info');
+        
+        fetch(`${TIE_BASE}/upload`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                addLog(`✅ 上传成功：${data.filename} (${formatFileSize(data.size)})`, 'success');
+                addLog(`📁 保存路径：${data.save_filename}`, 'info');
+                
+                // 更新进度条
+                const progress = (index / total) * 100;
+                document.getElementById('progress-bar').style.width = `${progress}%`;
+                document.getElementById('progress-text').textContent = `已处理 ${index}/${total} 个文件`;
+                
+                resolve(data);
+            } else {
+                const errorMsg = data.error || '上传失败';
+                addLog(`❌ 上传失败：${errorMsg}`, 'error');
+                reject(new Error(errorMsg));
+            }
+        })
+        .catch(error => {
+            addLog(`❌ 网络错误：${error.message}`, 'error');
+            reject(error);
+        });
+    });
+}
+
+// 开始复核
+function startReview() {
+    addLog('启动数据复核流程...', 'info');
+    // 打开新窗口跳转到数据复核页面
+    const reviewUrl = `${TIE_BASE}/data-review`;
+    const newWindow = window.open(reviewUrl, '_blank', 'width=1400,height=900,resizable=yes,scrollbars=yes');
+    
+    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        addLog('⚠️ 弹窗被浏览器拦截，请允许弹窗', 'warning');
+        alert(`弹窗被浏览器拦截！\n请点击地址栏右侧的“允许弹窗”图标，或直接访问：${reviewUrl}`);
+    } else {
+        addLog('✅ 已打开数据复核窗口', 'success');
+    }
+}
+
+// 获取文档类型名称
+function getDocTypeName(type) {
+    const select = document.getElementById('document-type');
+    const option = select.querySelector(`option[value="${type}"]`);
+    return option ? option.text : type;
+}
+
+// 初始化
+disableOtherInputs('single');
+addLog('页面已加载，请选择文件开始解析', 'info');
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.upload-page h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #2c3e50;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+#progress-bar-container {
+    background: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+.btn-success {
+    background-color: #27ae60;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #229954;
+}
+</style>
+{% endblock %}

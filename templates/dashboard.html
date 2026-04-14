@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>欢迎，{{ current_user.username }}！</h1>
+    
+    <div class="user-info-card">
+        <div class="info-row">
+            <span class="label">用户等级：</span>
+            <span class="badge level-{{ current_user.level }}">{{ current_user.get_level_name() }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">经验值：</span>
+            <span>{{ current_user.experience }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">积分：</span>
+            <span>{{ current_user.credits }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">最后登录：</span>
+            <span>{{ current_user.last_login.strftime('%Y-%m-%d %H:%M') if current_user.last_login else '从未登录' }}</span>
+        </div>
+    </div>
+    
+    <div class="quick-actions">
+        <h2>快速操作</h2>
+        <div class="action-grid">
+            <a href="{{ url_for('tie.profile') }}" class="action-card">
+                <h3>👤 个人资料</h3>
+                <p>查看和编辑您的个人信息</p>
+            </a>
+            <a href="{{ url_for('tie.change_password') }}" class="action-card">
+                <h3>🔑 修改密码</h3>
+                <p>更改您的账户密码</p>
+            </a>
+            {% if current_user.is_super_admin() %}
+            <a href="{{ url_for('tie.manage_users') }}" class="action-card">
+                <h3>👥 用户管理</h3>
+                <p>管理系统所有用户</p>
+            </a>
+            <a href="{{ url_for('tie.register') }}" class="action-card">
+                <h3>➕ 创建用户</h3>
+                <p>注册新用户</p>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <h1>👥 用户管理</h1>
+    
+    <div class="admin-actions">
+        <a href="{{ url_for('tie.register') }}" class="btn btn-primary">➕ 创建新用户</a>
+        <a href="{{ url_for('tie.dashboard') }}" class="btn btn-secondary">返回仪表盘</a>
+    </div>
+    
+    {% if users %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>等级</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>注册时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>
+                    {{ user.username }}
+                    {% if user.is_super_admin() %}
+                        <span class="badge badge-level-5">超级管理员</span>
+                    {% endif %}
+                </td>
+                <td>{{ user.email }}</td>
+                <td>
+                    <span class="badge level-{{ user.level }}">{{ user.get_level_name() }}</span>
+                </td>
+                <td>
+                    {% if user.is_admin %}
+                        <span class="status status-admin">管理员</span>
+                    {% else %}
+                        <span class="status status-user">普通用户</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.is_active %}
+                        <span class="status status-completed">正常</span>
+                    {% else %}
+                        <span class="status status-failed">禁用</span>
+                    {% endif %}
+                </td>
+                <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <a href="{{ url_for('tie.configure_user_api', user_id=user.id) }}" class="btn btn-sm">🔧 配置 API</a>
+                    <a href="{{ url_for('tie.change_password', target_username=user.username) }}" class="btn btn-sm">🔑 修改密码</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-message">暂无用户数据</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+<style>
+.admin-page {
+    max-width: 1200px;
+    margin: 40px auto;
+    background: white;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.admin-actions {
+    margin-bottom: 30px;
+    display: flex;
+    gap: 10px;
+}
+
+.table {
+    width: 100%;
+    font-size: 14px;
+}
+
+.badge-level-5 {
+    background-color: #f39c12;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+.status-admin {
+    background-color: #e74c3c;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.status-user {
+    background-color: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+</style>
