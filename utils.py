@@ -391,9 +391,9 @@ def merge_llm_post(file_path: str, check_class: str, name: str = "", model_name=
     image_saves =  []
     image_save_resize =  []
     sizes = []
-    with open(os.path.join(_prompt_dir, 'system.txt'), "r", encoding="utf-8") as f:
+    with open(os.path.join(_prompt_dir, 'system.md'), "r", encoding="utf-8") as f:
         system_prompt = f.read()
-    with open(os.path.join(_prompt_dir, f"{check_class}.txt"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_prompt_dir, f"{check_class}.md"), "r", encoding="utf-8") as f:
         concent = f.read()
     if check_class != "1":    
         concent += f"我现在需要查找的人才姓名是:{name}"

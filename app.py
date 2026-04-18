@@ -135,6 +135,9 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 # 确保上传目录存在
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# 确保 instance 目录存在（数据库文件存放目录）
+os.makedirs(os.path.join(basedir, 'instance'), exist_ok=True)
+
 # 初始化 Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -692,6 +695,30 @@ def configure_user_api(user_id):
     
     return render_template('configure_user_api.html', user=user)
 
+@tie.route('/configure_api', methods=['GET', 'POST'])
+@login_required
+def configure_api():
+    """用户自己配置 API"""
+    if request.method == 'POST':
+        api_key = request.form.get('api_key', '').strip()
+        base_url = request.form.get('base_url', 'https://dashscope.aliyuncs.com/compatible-mode/v1').strip()
+        model_name = request.form.get('model_name', 'qwen-vl-max')
+        
+        if not api_key:
+            flash('API Key 不能为空', 'error')
+            return redirect(url_for('tie.configure_api'))
+        
+        # 更新当前用户的 API 配置
+        current_user.api_key = api_key
+        current_user.base_url = base_url
+        current_user.model_name = model_name
+        db.session.commit()
+        
+        flash('✅ API 配置已保存', 'success')
+        return redirect(url_for('tie.profile'))
+    
+    return render_template('configure_api.html')
+
 @tie.route('/upload', methods=['POST'])
 @login_required
 def upload_file():
@@ -735,6 +762,15 @@ def upload_file():
         api_key = current_user.api_key or ''
         base_url = current_user.base_url or 'https://dashscope.aliyuncs.com/compatible-mode/v1'
         model_name = current_user.model_name or 'qwen-vl-max'
+        
+        # 检查 API 密钥是否配置
+        if not api_key or api_key.strip() == '':
+            if filepath and os.path.exists(filepath):
+                os.remove(filepath)
+            return jsonify({
+                'error': '❌ API 密钥未配置，请先在用户设置中配置 API 密钥',
+                'need_config': True
+            }), 400
         
         print(f"\n{'='*60}")
         print(f"【用户信息】")

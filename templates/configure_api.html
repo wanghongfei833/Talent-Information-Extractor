@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-form-container">
+        <h1>🔧 配置 API 密钥</h1>
+
+        <div class="alert alert-info">
+            <strong>ℹ️ 什么是 API 密钥？</strong><br>
+            API 密钥是用来调用阿里云通义千问模型的凭证，用于进行人才信息智能解析。<br>
+            <a href="https://dashscope.aliyuncs.com/" target="_blank" style="color: #27ae60;">📖 获取 API 密钥 (阿里云
+                DashScope)</a>
+        </div>
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="api_key">API Key *</label>
+                <input type="password" name="api_key" id="api_key" value="{{ current_user.api_key or '' }}" required
+                    placeholder="sk-xxxxxx..." autocomplete="off">
+                <button type="button" class="btn-toggle-password"
+                    onclick="togglePasswordVisibility('api_key')">👁️</button>
+                <small>仅用于此系统的 AI 解析功能，不会泄露</small>
+            </div>
+
+            <div class="form-group">
+                <label for="base_url">Base URL（可选）</label>
+                <input type="text" name="base_url" id="base_url"
+                    value="{{ current_user.base_url or 'https://dashscope.aliyuncs.com/compatible-mode/v1' }}"
+                    placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1">
+                <small>阿里云 DashScope 服务地址（通常无需修改）</small>
+            </div>
+
+            <div class="form-group">
+                <label for="model_name">模型选择</label>
+                <select name="model_name" id="model_name">
+                    <option value="qwen-vl-max" {% if current_user.model_name=='qwen-vl-max' %}selected{% endif %}>
+                        qwen-vl-max - 最强视觉语言模型（推荐）
+                    </option>
+                    <option value="qwen-vl-plus" {% if current_user.model_name=='qwen-vl-plus' %}selected{% endif %}>
+                        qwen-vl-plus - 性能均衡
+                    </option>
+                    <option value="qwen-vl-chat" {% if current_user.model_name=='qwen-vl-chat' %}selected{% endif %}>
+                        qwen-vl-chat - 基础视觉模型
+                    </option>
+                </select>
+                <small>建议使用 qwen-vl-max 获得最佳解析效果</small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-lg">💾 保存 API 配置</button>
+                <a href="{{ url_for('tie.profile') }}" class="btn btn-secondary">返回个人资料</a>
+            </div>
+
+            {% if current_user.api_key %}
+            <div class="alert alert-success">
+                ✅ API 已配置
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                ⚠️ 您还未配置 API，无法使用智能解析功能
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<style>
+    .btn-toggle-password {
+        position: absolute;
+        right: 12px;
+        top: 38px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 5px;
+    }
+
+    .form-group {
+        position: relative;
+    }
+</style>
+
+<script>
+    function togglePasswordVisibility(fieldId) {
+        const field = document.getElementById(fieldId);
+        const btn = event.target;
+
+        if (field.type === 'password') {
+            field.type = 'text';
+            btn.textContent = '🙈';
+        } else {
+            field.type = 'password';
+            btn.textContent = '👁️';
+        }
+    }
+</script>
+{% endblock %}
