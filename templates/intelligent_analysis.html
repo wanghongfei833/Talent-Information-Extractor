@@ -55,52 +55,59 @@
             </div>
         </div>
 
-        <!-- 右侧：解析配置和日志 -->
+        <!-- 右侧：解析配置 -->
         <div class="right-panel">
-            <div class="config-section">
-                <h3>🎯 解析配置</h3>
-                <div class="form-group">
-                    <label for="document-type">文档类型 *</label>
-                    <select id="document-type" class="form-control">
-                        <option value="">请选择文档类型</option>
-                        <option value="1">1 - 有效身份证件</option>
-                        <option value="2">2 - 学历学位</option>
-                        <option value="3">3 - 工作证明</option>
-                        <option value="4-1">4-1 - 项目证明(项目立项书、结题报告)</option>
-                        <option value="4-2">4-2 - 项目证明(论文证明)</option>
-                        <option value="4-3">4-3 - 项目证明(专利)</option>
-                        <option value="4-4">4-4 - 项目证明(奖项)</option>
-                        <option value="5-1">5-1 - 论文</option>
-                        <option value="5-2">5-2 - 重要学术会议邀请报告</option>
-                        <option value="5-3">5-3 - 著作</option>
-                        <option value="5-4">5-4 - 研究技术报告</option>
-                        <option value="5-5">5-5 - 专利</option>
-                        <option value="5-6">5-6 - 奖项</option>
-                    </select>
+            <!-- 第一行：文档类型 + 目标姓名 -->
+            <div class="config-row">
+                <div class="config-section">
+                    <label>文档类型 *</label>
+                    <div id="document-type" class="radio-group-compact">
+                        <label class="radio-card-compact auto-card">
+                            <input type="radio" name="doc_type" value="AUTO" checked style="display: none;">
+                            <span class="radio-icon">⚡</span>
+                            <span class="radio-text">
+                                <strong>AUTO</strong>
+                                <small>自动识别</small>
+                            </span>
+                        </label>
+                        <div class="doc-type-row">
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="1"><span>1身份证</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="2"><span>2学历</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="3"><span>3工作</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="4-1"><span>4-1立项</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="4-2"><span>4-2论文</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="4-3"><span>4-3专利</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="4-4"><span>4-4奖项</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="5-1"><span>5-1论文</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="5-2"><span>5-2会议</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="5-3"><span>5-3著作</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="5-4"><span>5-4报告</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="5-5"><span>5-5专利</span></label>
+                            <label class="radio-item-compact"><input type="radio" name="doc_type" value="5-6"><span>5-6奖项</span></label>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-group">
+                <div class="config-section">
                     <label for="target-name">目标姓名<span id="target-name-required-star"> *</span></label>
-                    <input type="text" id="target-name" placeholder="请输入要查找的人才姓名">
-                    <small id="target-name-hint" style="color: #e74c3c;">* 必填项，请输入要查找的人才姓名</small>
+                    <input type="text" id="target-name" placeholder="请输入人才姓名" style="padding:8px 12px;width:100%;box-sizing:border-box;">
+                    <small id="target-name-hint" style="color: #e74c3c; font-size:11px;">* 必填项</small>
                 </div>
             </div>
 
-            <!-- 存储占用提示 -->
-            <div class="config-section">
-                <h3>💾 存储占用</h3>
-                <div id="storage-usage-box"
-                    style="background:#f8f9fa;border-radius:8px;padding:12px 14px;border:1px solid #ddd;">
-                    <div style="color:#666;">正在检查当前占用...</div>
+            <!-- 第二行：存储 + 日志 -->
+            <div class="log-row">
+                <div class="config-section">
+                    <h3>💾 存储</h3>
+                    <div id="storage-usage-box" style="background:#f8f9fa;border-radius:6px;padding:10px;border:1px solid #ddd;font-size:12px;">
+                        <div style="color:#666;">检查中...</div>
+                    </div>
                 </div>
-            </div>
-
-            <!-- 日志区域 -->
-            <div class="config-section">
-                <h3>📝 处理日志</h3>
-                <div id="log-container"
-                    style="background: #f8f9fa; border-radius: 8px; padding: 15px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; border: 1px solid #ddd;">
-                    <div style="color: #666;">等待操作...</div>
+                <div class="config-section">
+                    <h3>📝 日志</h3>
+                    <div id="log-container" style="background:#f8f9fa;border-radius:6px;padding:10px;height:80px;overflow-y:auto;font-family:'Courier New',monospace;font-size:11px;border:1px solid #ddd;">
+                        <div style="color:#666;">等待操作...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -123,19 +130,14 @@
         </button>
     </div>
 
-    <!-- 进度显示区域 -->
-    <div id="progress-container" style="display: none; margin-top: 30px;">
+    <!-- 进度显示区域 - 固定右下角 -->
+    <div id="progress-container">
         <h3>📈 解析进度</h3>
-        <div id="progress-bar-container"
-            style="background: #f0f0f0; border-radius: 8px; overflow: hidden; margin: 20px 0;">
-            <div id="progress-bar"
-                style="width: 0%; height: 30px; background: linear-gradient(90deg, #27ae60, #2ecc71); transition: width 0.3s;">
-            </div>
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
         </div>
-        <div id="progress-text" style="text-align: center; color: #666;">准备中...</div>
-        <div id="progress-details"
-            style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; max-height: 300px; overflow-y: auto;">
-        </div>
+        <div id="progress-text" style="text-align:center;color:#666;font-size:12px;margin-top:8px;">准备中...</div>
+        <div id="progress-details" style="margin-top:10px;padding:10px;background:#f8f9fa;border-radius:6px;max-height:120px;overflow-y:auto;font-size:11px;"></div>
     </div>
 </div>
 
@@ -318,10 +320,12 @@
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
 
-    // 日志功能
-    const logContainer = document.getElementById('log-container');
+    // 日志功能 - 获取容器
+    let logContainer;
 
     function addLog(message, type = 'info') {
+        if (!logContainer) logContainer = document.getElementById('log-container');
+        if (!logContainer) return;
         const timestamp = new Date().toLocaleTimeString();
         const colors = {
             'info': '#666',
@@ -332,7 +336,8 @@
 
         const logEntry = document.createElement('div');
         logEntry.style.color = colors[type] || colors['info'];
-        logEntry.style.marginBottom = '5px';
+        logEntry.style.marginBottom = '3px';
+        logEntry.style.fontSize = '11px';
         logEntry.textContent = `[${timestamp}] ${message}`;
 
         logContainer.appendChild(logEntry);
@@ -340,7 +345,8 @@
     }
 
     function clearLogs() {
-        logContainer.innerHTML = '<div style="color: #666;">等待操作...</div>';
+        if (!logContainer) logContainer = document.getElementById('log-container');
+        if (logContainer) logContainer.innerHTML = '<div style="color:#666;">等待操作...</div>';
     }
 
     // 模式切换
@@ -359,29 +365,18 @@
         });
     });
 
-    // 有效身份证件(1) 时目标姓名为选填，其余类型为必填
-    function syncTargetNameFieldUI() {
-        const docType = document.getElementById('document-type').value;
-        const optional = docType === '1';
-        const star = document.getElementById('target-name-required-star');
-        const hint = document.getElementById('target-name-hint');
-        if (optional) {
-            star.style.display = 'none';
-            hint.style.color = '#666';
-            hint.textContent = '选择「有效身份证件」时此项为选填；其他文档类型须填写要查找的人才姓名。';
-        } else {
-            star.style.display = 'inline';
-            hint.style.color = '#e74c3c';
-            hint.textContent = '* 必填项，请输入要查找的人才姓名';
-        }
+    // 获取选中的文档类型值
+    function getSelectedDocType() {
+        const selected = document.querySelector('input[name="doc_type"]:checked');
+        return selected ? selected.value : '';
     }
-
-    document.getElementById('document-type').addEventListener('change', syncTargetNameFieldUI);
 
     // 页面加载时检查占用
     document.addEventListener('DOMContentLoaded', function () {
-        syncTargetNameFieldUI();
         refreshStorageUsage();
+        // 初始隐藏进度区域
+        const progressContainer = document.getElementById('progress-container');
+        if (progressContainer) progressContainer.style.display = 'none';
     });
 
     function disableOtherInputs(currentMode) {
@@ -397,7 +392,7 @@
 
     // 开始解析
     async function startAnalysis() {
-        const docType = document.getElementById('document-type').value;
+        const docType = getSelectedDocType();
         const targetName = document.getElementById('target-name').value.trim();
 
         // 1. 检查是否选择了文件
@@ -407,17 +402,11 @@
             return;
         }
 
-        // 2. 检查文档类型是否选中
-        if (!docType) {
-            addLog('错误：请选择文档类型！', 'error');
-            alert('请选择文档类型！');
-            return;
-        }
-
-        // 3. 目标姓名：除「有效身份证件」(1) 外必填
-        if (!targetName && docType !== '1') {
+        // 2. 检查文档类型是否选中（不需要检查，因为默认选中 AUTO）
+        // 3. 目标姓名：必填
+        if (!targetName) {
             addLog('错误：请填写目标姓名！', 'error');
-            alert('当前文档类型下，目标姓名为必填项，请填写！');
+            alert('目标姓名是必填项，请填写！');
             return;
         }
 
@@ -425,7 +414,7 @@
         clearLogs();
         addLog(`开始解析任务`, 'info');
         addLog(`文档类型：${getDocTypeName(docType)}`, 'info');
-        addLog(targetName ? `目标姓名：${targetName}` : '目标姓名：（未填写，有效身份证件可不填）', 'info');
+        addLog(`目标姓名：${targetName}`, 'info');
         addLog(`文件数量：${selectedFiles.length}`, 'info');
 
         selectedFiles.forEach((file, index) => {
@@ -525,9 +514,23 @@
 
     // 获取文档类型名称
     function getDocTypeName(type) {
-        const select = document.getElementById('document-type');
-        const option = select.querySelector(`option[value="${type}"]`);
-        return option ? option.text : type;
+        const radioLabels = {
+            'AUTO': 'AUTO - 自动识别',
+            '1': '1 - 有效身份证件',
+            '2': '2 - 学历学位',
+            '3': '3 - 工作证明',
+            '4-1': '4-1 - 项目证明(项目立项书、结题报告)',
+            '4-2': '4-2 - 项目证明(论文证明)',
+            '4-3': '4-3 - 项目证明(专利)',
+            '4-4': '4-4 - 项目证明(奖项)',
+            '5-1': '5-1 - 论文',
+            '5-2': '5-2 - 重要学术会议邀请报告',
+            '5-3': '5-3 - 著作',
+            '5-4': '5-4 - 研究技术报告',
+            '5-5': '5-5 - 专利',
+            '5-6': '5-6 - 奖项'
+        };
+        return radioLabels[type] || type;
     }
 
     // 初始化
@@ -538,25 +541,19 @@
 
 {% block extra_css %}
 <style>
-    .upload-page h1 {
-        text-align: center;
-        margin-bottom: 30px;
-        color: #2c3e50;
-    }
-
     .form-control {
         width: 100%;
-        padding: 10px;
+        padding: 8px;
         border: 1px solid #ddd;
         border-radius: 4px;
-        font-size: 14px;
+        font-size: 13px;
     }
 
     #progress-bar-container {
         background: #f0f0f0;
-        border-radius: 8px;
+        border-radius: 6px;
         overflow: hidden;
-        margin: 20px 0;
+        margin: 10px 0;
     }
 
     .btn-success {
@@ -566,6 +563,314 @@
 
     .btn-success:hover {
         background-color: #229954;
+    }
+
+    /* 紧凑模式切换按钮 */
+    .upload-mode-switch {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .mode-btn {
+        flex: 1;
+        padding: 8px 12px;
+        border: 2px solid #ddd;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.3s;
+    }
+
+    .mode-btn:hover {
+        border-color: #3498db;
+        background: #f0f8ff;
+    }
+
+    .mode-btn.active {
+        border-color: #3498db;
+        background: #3498db;
+        color: white;
+        font-weight: bold;
+    }
+
+    /* 紧凑文件拖放 */
+    .file-drop-zone {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 16px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #fafafa;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .file-drop-zone:hover {
+        border-color: #3498db;
+        background: #f0f8ff;
+    }
+
+    .drop-icon { font-size: 32px; margin-bottom: 6px; }
+    .drop-text { font-size: 14px; color: #2c3e50; margin-bottom: 4px; font-weight: 500; }
+    .drop-hint { font-size: 11px; color: #7f8c8d; }
+
+    /* 紧凑文件预览 */
+    .file-preview {
+        margin-top: 12px;
+        max-height: 100px;
+        overflow-y: auto;
+        background: white;
+        border-radius: 6px;
+        padding: 10px;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 6px;
+        margin-bottom: 4px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 3px solid #3498db;
+    }
+
+    .file-icon { font-size: 18px; margin-right: 8px; }
+    .file-info { flex: 1; overflow: hidden; }
+    .file-name { font-weight: 600; color: #2c3e50; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 11px; color: #7f8c8d; margin-top: 2px; }
+
+    /* 紧凑配置区域 */
+    .config-section {
+        margin-bottom: 0;
+    }
+
+    .config-section h3 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+        font-size: 14px;
+        border-left: 3px solid #3498db;
+        padding-left: 8px;
+    }
+
+    .compact-section {
+        flex-shrink: 0;
+    }
+
+    /* 紧凑单选框组 */
+    .radio-group-compact {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .doc-type-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .radio-options-compact {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+    }
+
+    .type-label {
+        font-size: 10px;
+        color: #888;
+        margin-right: 4px;
+        white-space: nowrap;
+    }
+
+    .radio-card-compact {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #fff;
+        margin-bottom: 8px;
+    }
+
+    .auto-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+    }
+
+    .radio-card-compact:hover {
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .radio-card-compact .radio-icon { font-size: 16px; }
+    .radio-card-compact .radio-text { display: flex; flex-direction: column; gap: 0; }
+    .radio-card-compact .radio-text strong { font-size: 13px; }
+    .radio-card-compact .radio-text small { font-size: 10px; opacity: 0.9; }
+
+    .radio-item-compact {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 4px 6px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #fafafa;
+        font-size: 11px;
+    }
+
+    .radio-item-compact:hover {
+        background: #f0f0f5;
+        border-color: #667eea;
+    }
+
+    .radio-item-compact input[type="radio"] {
+        width: 12px;
+        height: 12px;
+        accent-color: #667eea;
+        cursor: pointer;
+    }
+
+    .radio-item-compact span {
+        color: #444;
+        white-space: nowrap;
+    }
+
+    /* 选中状态 */
+    .radio-item-compact:has(input:checked) {
+        background: #e8eaf6;
+        border-color: #667eea;
+    }
+
+    .radio-item-compact:has(input:checked) span {
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .radio-card-compact:has(input:checked) {
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    }
+
+    /* 底部操作栏 - 紧凑 */
+    .upload-actions {
+        background: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-shrink: 0;
+    }
+
+    .selected-files-info {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border-left: 3px solid #3498db;
+        font-size: 13px;
+    }
+
+    .info-icon { font-size: 16px; }
+    .info-text { color: #2c3e50; font-weight: 500; }
+
+    .upload-actions .btn {
+        min-width: 100px;
+        padding: 10px 16px;
+    }
+
+    .upload-actions .btn-lg {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+
+    /* 进度区域 - 浮动显示 */
+    #progress-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 400px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        padding: 16px;
+        z-index: 1000;
+    }
+
+    #progress-container h3 {
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+
+    #progress-bar-container {
+        height: 20px;
+        background: #f0f0f0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    #progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #27ae60, #2ecc71);
+        transition: width 0.3s;
+        border-radius: 10px;
+    }
+
+    #progress-details {
+        max-height: 150px;
+        overflow-y: auto;
+        font-size: 11px;
+    }
+
+    /* 面板样式 */
+    .left-panel > h3,
+    .right-panel > .config-section > h3 {
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-size: 14px;
+        border-left: 3px solid #e74c3c;
+        padding-left: 8px;
+    }
+
+    .right-panel > .config-section > h3:first-child {
+        border-left-color: #3498db;
+    }
+
+    .left-panel {
+        max-height: none;
+    }
+
+    .right-panel {
+        max-height: none;
+    }
+
+    .form-group {
+        margin-bottom: 12px;
+    }
+
+    .form-group label {
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .form-group input {
+        padding: 8px 10px;
+        font-size: 13px;
     }
 </style>
 {% endblock %}

@@ -729,6 +729,13 @@ def upload_file():
     try:
         if 'file' not in request.files:
             return jsonify({'error': '没有文件上传'}), 400
+              
+        # 获取用户 API 配置
+        api_key = current_user.api_key 
+        base_url = current_user.base_url 
+        model_name = current_user.model_name
+        if not (api_key and base_url and model_name):
+            return jsonify({'error': 'API配置不完整'}), 400
         # 获取用户信息
         username = current_user.username
         user_id = current_user.id
@@ -757,21 +764,15 @@ def upload_file():
         file_size = os.path.getsize(filepath)
         
 
-        
-        # 获取用户 API 配置
-        api_key = current_user.api_key or ''
-        base_url = current_user.base_url or 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-        model_name = current_user.model_name or 'qwen-vl-max'
-        
+  
         # 检查 API 密钥是否配置
-        if not api_key or api_key.strip() == '':
+        if not (api_key and base_url and model_name):
             if filepath and os.path.exists(filepath):
                 os.remove(filepath)
             return jsonify({
-                'error': '❌ API 密钥未配置，请先在用户设置中配置 API 密钥',
-                'need_config': True
+                'error': '❌ API 密钥未配置，请先联系管理员为你配置 API 密钥和可使用的模型，',
             }), 400
-        
+        # 开始执行操作
         print(f"\n{'='*60}")
         print(f"【用户信息】")
         print(f"  用户名：{username}")
@@ -787,7 +788,11 @@ def upload_file():
         print(f"  文档类型：{doc_type}")
         print(f"  目标姓名：{target_name}")
         print(f"{'='*60}\n")
-        
+        if doc_type == "AUTO":
+            names = os.path.basename(filepath)
+            names = names.split("-")[:-1]
+            doc_type = "-".join(names[1:])
+            target_name = names[0]
         image_list = merge_llm_post(
             file_path=filepath, 
             check_class=doc_type,

@@ -23,7 +23,7 @@ body {
     background-color: #2c3e50;
     color: white;
     padding: 1rem 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .navbar .container {
@@ -53,7 +53,7 @@ body {
 }
 
 .nav-links a:hover {
-    background-color: rgba(255,255,255,0.1);
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 按钮 */
@@ -158,15 +158,17 @@ body {
     margin: 40px 0;
 }
 
-.stat-card, .stat-box {
+.stat-card,
+.stat-box {
     background: white;
     padding: 30px;
     border-radius: 8px;
     text-align: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.stat-card h3, .stat-box h3 {
+.stat-card h3,
+.stat-box h3 {
     font-size: 2.5rem;
     color: #667eea;
     margin-bottom: 10px;
@@ -188,7 +190,7 @@ body {
     background: white;
     padding: 30px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s;
 }
 
@@ -198,13 +200,18 @@ body {
 
 /* 表单 */
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: bold;
+    font-size: 14px;
 }
 
 .form-group input,
@@ -235,7 +242,7 @@ body {
     background: white;
     padding: 40px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .auth-link {
@@ -252,11 +259,30 @@ body {
     font-weight: bold;
 }
 
-.badge.level-1 { background-color: #95a5a6; color: white; }
-.badge.level-2 { background-color: #3498db; color: white; }
-.badge.level-3 { background-color: #9b59b6; color: white; }
-.badge.level-4 { background-color: #e74c3c; color: white; }
-.badge.level-5 { background-color: #f39c12; color: white; }
+.badge.level-1 {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.badge.level-2 {
+    background-color: #3498db;
+    color: white;
+}
+
+.badge.level-3 {
+    background-color: #9b59b6;
+    color: white;
+}
+
+.badge.level-4 {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.badge.level-5 {
+    background-color: #f39c12;
+    color: white;
+}
 
 /* 状态标签 */
 .status {
@@ -266,10 +292,25 @@ body {
     font-size: 12px;
 }
 
-.status-pending { background-color: #f39c12; color: white; }
-.status-processing { background-color: #3498db; color: white; }
-.status-completed { background-color: #27ae60; color: white; }
-.status-failed { background-color: #e74c3c; color: white; }
+.status-pending {
+    background-color: #f39c12;
+    color: white;
+}
+
+.status-processing {
+    background-color: #3498db;
+    color: white;
+}
+
+.status-completed {
+    background-color: #27ae60;
+    color: white;
+}
+
+.status-failed {
+    background-color: #e74c3c;
+    color: white;
+}
 
 /* 表格 */
 .table {
@@ -306,89 +347,109 @@ body {
     margin-top: 40px;
 }
 
-/* 上传页面 */
+/* 上传页面 - 紧凑布局 */
 .upload-page {
     max-width: 1400px;
-    margin: 30px auto;
+    margin: 20px auto;
     padding: 0 20px;
+    height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
 }
 
 .upload-page h1 {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 16px;
     color: #2c3e50;
+    font-size: 22px;
 }
 
-/* 两栏布局 */
+/* 紧凑上下布局 */
 .upload-grid {
-    display: grid;
-    grid-template-columns: 1fr 1.2fr;
-    gap: 30px;
-    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    overflow: hidden;
 }
 
 .left-panel,
 .right-panel {
     background: white;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-}
-
-.left-panel {
-    padding: 30px;
+    padding: 16px;
 }
 
 .right-panel {
-    padding: 30px;
     background: #fafbfc;
+}
+
+/* 面板内部布局 - 两列 */
+.left-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+/* 右侧面板上下两行 */
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.right-panel .config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.right-panel .log-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
 }
 
 /* 配置区域 */
 .config-section {
-    margin-bottom: 30px;
-}
-
-.config-section:last-child {
     margin-bottom: 0;
 }
 
 .config-section h3 {
     color: #2c3e50;
-    margin-bottom: 20px;
-    font-size: 18px;
+    margin-bottom: 16px;
+    font-size: 16px;
     border-left: 4px solid #3498db;
-    padding-left: 12px;
+    padding-left: 10px;
 }
 
 /* 文件选择区域 */
-.file-selection-section {
-    height: 100%;
-}
-
 .file-selection-section h3 {
     color: #2c3e50;
-    margin-bottom: 20px;
-    font-size: 18px;
+    margin-bottom: 16px;
+    font-size: 16px;
     border-left: 4px solid #e74c3c;
-    padding-left: 12px;
+    padding-left: 10px;
 }
 
 /* 模式切换按钮 */
 .upload-mode-switch {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 8px;
+    margin-bottom: 16px;
 }
 
 .mode-btn {
     flex: 1;
-    padding: 12px 20px;
+    padding: 10px 16px;
     border: 2px solid #ddd;
     background: white;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     transition: all 0.3s;
 }
 
@@ -416,12 +477,12 @@ body {
 .file-drop-zone {
     border: 3px dashed #ccc;
     border-radius: 8px;
-    padding: 40px 20px;
+    padding: 30px 20px;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s;
-    background: white;
-    min-height: 200px;
+    background: #fafafa;
+    min-height: 140px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -463,7 +524,7 @@ body {
     background: white;
     border-radius: 6px;
     padding: 15px;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .file-item {
@@ -519,7 +580,7 @@ body {
     background: white;
     padding: 20px 30px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
     gap: 20px;
@@ -602,7 +663,7 @@ body {
     background: white;
     padding: 40px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .result-header {
@@ -642,7 +703,8 @@ body {
     gap: 10px;
 }
 
-.processing-message, .error-message {
+.processing-message,
+.error-message {
     text-align: center;
     padding: 40px;
 }
@@ -657,7 +719,7 @@ body {
     background: white;
     padding: 40px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .profile-header {
@@ -693,20 +755,20 @@ body {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .nav-links {
         flex-wrap: wrap;
         justify-content: center;
     }
-    
+
     .hero h1 {
         font-size: 1.8rem;
     }
-    
+
     .result-content {
         grid-template-columns: 1fr;
     }
-    
+
     .profile-info {
         grid-template-columns: 1fr;
     }

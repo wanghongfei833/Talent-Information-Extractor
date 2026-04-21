@@ -267,7 +267,6 @@ def llm_post(
 ):
     if chat_history is None:
         chat_history = []
-
     # ========== 构造当前用户输入（文本 + 图片 多模态） ==========
     user_content = [{"type": "text", "text": prompt}]
     if image is not None:
@@ -395,13 +394,12 @@ def merge_llm_post(file_path: str, check_class: str, name: str = "", model_name=
         system_prompt = f.read()
     with open(os.path.join(_prompt_dir, f"{check_class}.md"), "r", encoding="utf-8") as f:
         concent = f.read()
-    if check_class != "1":    
-        concent += f"我现在需要查找的人才姓名是:{name}"
+    concent += f"我现在需要查找的人才姓名是: '{name}' "
     # 扩展名大小写不敏感：.PDF 也应按 PDF 处理
     if os.path.splitext(file_path)[1].lower() == ".pdf":
         image_list = convert_from_path(file_path)
     else:
-        image_list = [Image.open(file_path)]
+        image_list = [Image.open(file_path).convert("RGB")]
     for index,image in enumerate(image_list):
         w,h = image.size    
         sizes.append((w,h))
