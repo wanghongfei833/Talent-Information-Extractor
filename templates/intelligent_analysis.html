@@ -89,9 +89,8 @@
                 </div>
 
                 <div class="config-section">
-                    <label for="target-name">目标姓名<span id="target-name-required-star"> *</span></label>
+                    <label for="target-name">目标姓名</label>
                     <input type="text" id="target-name" placeholder="请输入人才姓名" style="padding:8px 12px;width:100%;box-sizing:border-box;">
-                    <small id="target-name-hint" style="color: #e74c3c; font-size:11px;">* 必填项</small>
                 </div>
             </div>
 
@@ -402,19 +401,13 @@
             return;
         }
 
-        // 2. 检查文档类型是否选中（不需要检查，因为默认选中 AUTO）
-        // 3. 目标姓名：必填
-        if (!targetName) {
-            addLog('错误：请填写目标姓名！', 'error');
-            alert('目标姓名是必填项，请填写！');
-            return;
-        }
-
         // 清空日志
         clearLogs();
         addLog(`开始解析任务`, 'info');
         addLog(`文档类型：${getDocTypeName(docType)}`, 'info');
-        addLog(`目标姓名：${targetName}`, 'info');
+        if (targetName) {
+            addLog(`目标姓名：${targetName}`, 'info');
+        }
         addLog(`文件数量：${selectedFiles.length}`, 'info');
 
         selectedFiles.forEach((file, index) => {

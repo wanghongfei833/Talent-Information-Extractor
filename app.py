@@ -792,7 +792,7 @@ def upload_file():
             names = os.path.basename(filepath)
             names = names.split("-")[:-1]
             doc_type = "-".join(names[1:])
-            target_name = names[0]
+            target_name = names[0] 
         image_list = merge_llm_post(
             file_path=filepath, 
             check_class=doc_type,
