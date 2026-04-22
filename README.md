@@ -44,13 +44,19 @@ requirements.txt      # 依赖
 
 ## 快速开始（本地）
 
-1. 安装依赖（建议使用虚拟环境）
+1. 激活 conda 环境
+
+```bash
+conda activate aliyun
+```
+
+2. 安装依赖（建议使用虚拟环境）
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. 启动
+3. 启动
 
 ```bash
 python app.py

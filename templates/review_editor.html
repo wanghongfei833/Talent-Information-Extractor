@@ -660,7 +660,8 @@
                 <span class="zoom-label" id="zoom-label">100%</span>
             </div>
             <!-- 全局字体设置 -->
-            <div class="global-font-control" style="padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; align-items: center; gap: 8px;">
+            <div class="global-font-control"
+                style="padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; align-items: center; gap: 8px;">
                 <label for="global-font-size" style="font-weight: 500; white-space: nowrap;">全局字号:</label>
                 <select id="global-font-size" onchange="setGlobalFontSize(this.value)">
                     <option value="12">12</option>
@@ -1333,7 +1334,7 @@
             canvas.renderAll();
             return;
         }
-        
+
         const rect = getAnnotationRect(obj);
         if (!rect || !rect.data || !rect.data.annId) return;
         const label = findLabelByAnnId(rect.data.annId);
@@ -1426,7 +1427,7 @@
 
     function gatherAnnotationsForSave() {
         const items = [];
-        
+
         // 收集所有框和标签
         const rects = canvas.getObjects().filter(o => o.data && o.data.role === 'box');
         rects.forEach(rect => {
@@ -1456,7 +1457,7 @@
             };
             items.push(item);
         });
-        
+
         // 收集独立的文字（不在框内的）
         const texts = canvas.getObjects().filter(o => o.data && o.data.role === 'text');
         texts.forEach(text => {
@@ -1465,19 +1466,24 @@
                 left: Math.round(text.left),
                 top: Math.round(text.top)
             });
+            const style = {
+                fill: text.fill,
+                stroke: text.stroke,
+                fontSize: text.fontSize !== _reviewLabelFontSize ? text.fontSize : undefined,
+                fontFamily: text.fontFamily || 'Microsoft YaHei, "Segoe UI", "PingFang SC", sans-serif'
+            };
+            // 移除undefined值
+            Object.keys(style).forEach(key => {
+                if (style[key] === undefined) delete style[key];
+            });
             items.push({
                 type: 'text',
                 text: text.text || '',
                 position: posOrig,
-                style: {
-                    fill: text.fill,
-                    stroke: text.stroke,
-                    fontSize: text.fontSize || _reviewLabelFontSize,
-                    fontFamily: text.fontFamily || 'Microsoft YaHei, "Segoe UI", "PingFang SC", sans-serif'
-                }
+                style: style
             });
         });
-        
+
         return items;
     }
 
@@ -1632,7 +1638,7 @@
             if (canvas) canvas.renderAll();
             refreshSaveDirtyUi();
         }
-        
+
         titleEl.addEventListener('input', syncFromForm);
         contentEl.addEventListener('input', syncFromForm);
         redEl.addEventListener('change', syncFromForm);
@@ -1644,34 +1650,40 @@
     function setGlobalFontSize(size) {
         const s = Math.max(10, Math.min(60, parseInt(size, 10) || _reviewLabelFontSize));
         _reviewLabelFontSize = s;
-        
+
         // 同步更新全局下拉框的值
         const globalFontEl = document.getElementById('global-font-size');
         if (globalFontEl) globalFontEl.value = String(s);
-        
+
         if (canvas) {
-            // 只更新没有单独设置过字号的 box（style.labelFontSize 为 null 表示使用全局字号）
+            // 更新所有标注的字号（全局修改会覆盖所有，除非单独设置过）
             canvas.getObjects().forEach(function (o) {
-                if (o && o.data && o.data.role === 'box') {
-                    // 只有当 box 没有单独设置过字号时，才使用全局字号
-                    // 注意：不要修改 style.labelFontSize，保持为 null
-                    // 如果 style.labelFontSize 有值，说明用户单独设置过，不受全局字号影响
-                }
-            });
-            
-            // 更新所有 label 的字号（只更新没有单独设置过字号的）
-            canvas.getObjects().forEach(function (o) {
-                if (o && o.data && o.data.role === 'label') {
-                    // 查找对应的 box
-                    const boxData = canvas.getObjects().find(function(obj) {
-                        return obj && obj.data && obj.data.role === 'box' && obj.data.annId === o.data.annId;
-                    });
-                    // 只有当 box 没有单独设置过字号（labelFontSize 为 null 或 undefined）时才更新
-                    if (!boxData || !boxData.data.style || boxData.data.style.labelFontSize == null) {
-                        o.set({ fontSize: s });
-                        if (typeof o.initDimensions === 'function') o.initDimensions();
-                        o.setCoords();
+                if (!o || !o.data) return;
+
+                if (o.data.role === 'text') {
+                    // 独立的文字标注
+                    o.set({ fontSize: s });
+                    if (o.data.style) {
+                        delete o.data.style.fontSize;
                     }
+                    if (typeof o.initDimensions === 'function') o.initDimensions();
+                    o.setCoords();
+                }
+                else if (o.data.role === 'box') {
+                    // box 矩形框 - 直接设置字号
+                    o.set({ fontSize: s });
+                    // 清除自定义字号标记，恢复使用全局字号
+                    if (o.data.style) {
+                        delete o.data.style.labelFontSize;
+                    }
+                    if (typeof o.initDimensions === 'function') o.initDimensions();
+                    o.setCoords();
+                }
+                else if (o.data.role === 'label') {
+                    // 标签 - 直接设置字号
+                    o.set({ fontSize: s });
+                    if (typeof o.initDimensions === 'function') o.initDimensions();
+                    o.setCoords();
                 }
             });
             canvas.renderAll();
@@ -1681,14 +1693,36 @@
 
     // ========== 单独修改选中标注的字号 ==========
     function setSelectedAnnotationFontSize(size) {
-        if (!selectedBox || !selectedBox.data || selectedBox.data.role !== 'box') return;
-        
+        if (!selectedBox) return;
+
         const s = Math.max(10, Math.min(60, parseInt(size, 10) || 30));
+
+        // 处理独立的文字标注
+        if (selectedBox.data && selectedBox.data.role === 'text') {
+            selectedBox.set({ fontSize: s });
+            // 如果设置的字体大小等于全局大小，则清除自定义标记，否则设置自定义标记
+            if (s === _reviewLabelFontSize) {
+                if (selectedBox.data.style) {
+                    delete selectedBox.data.style.fontSize;
+                }
+            } else {
+                selectedBox.data.style = Object.assign({}, selectedBox.data.style || {}, { fontSize: s });
+            }
+            if (typeof selectedBox.initDimensions === 'function') selectedBox.initDimensions();
+            selectedBox.setCoords();
+            canvas.renderAll();
+            refreshSaveDirtyUi();
+            return;
+        }
+
+        // 处理框标注
+        if (!selectedBox.data || selectedBox.data.role !== 'box') return;
+
         const d = selectedBox.data;
-        
+
         // 标记该标注有自定义字号（设置为具体的数值，而不是 null）
         d.style = Object.assign({}, d.style || {}, { labelFontSize: s });
-        
+
         // 更新对应的标签
         if (canvas) {
             canvas.getObjects().forEach(function (o) {
@@ -1766,8 +1800,55 @@
         bindAnnotationPointerStyles();
         bindCanvasDirtyTracking();
 
-        // 设置滚轮缩放
-        setupCanvasWheelZoom();
+        // 滚轮缩放已在全局初始化时设置
+        // setupCanvasWheelZoom();
+
+        // ========== 中键拖拽画布 ==========
+        let _isMiddleMouseDown = false;
+        let _panStartX = 0;
+        let _panStartY = 0;
+        let _canvasPanLeft = 0;
+        let _canvasPanTop = 0;
+
+        const cw = document.getElementById('canvas-wrapper');
+        const canvasEl = canvas.getElement();
+        if (cw && canvasEl) {
+            // 在 wrapper 上用 capture 模式拦截中键，确保先于子元素处理
+            cw.addEventListener('mousedown', function(e) {
+                if (e.button === 1) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 开始拖拽
+                    _isMiddleMouseDown = true;
+                    _panStartX = e.clientX;
+                    _panStartY = e.clientY;
+                    _canvasPanLeft = canvas.viewportTransform[4];
+                    _canvasPanTop = canvas.viewportTransform[5];
+                    cw.style.cursor = 'grabbing';
+                    canvas.selection = false;
+                }
+            }, true); // capture 模式
+
+            // 鼠标移动时处理拖拽
+            cw.addEventListener('mousemove', function(e) {
+                if (_isMiddleMouseDown) {
+                    const dx = e.clientX - _panStartX;
+                    const dy = e.clientY - _panStartY;
+                    canvas.viewportTransform[4] = _canvasPanLeft + dx;
+                    canvas.viewportTransform[5] = _canvasPanTop + dy;
+                    canvas.requestRenderAll();
+                }
+            });
+
+            // 鼠标释放时停止拖拽
+            document.addEventListener('mouseup', function(e) {
+                if (e.button === 1 && _isMiddleMouseDown) {
+                    _isMiddleMouseDown = false;
+                    cw.style.cursor = '';
+                    canvas.selection = true;
+                }
+            });
+        }
     }
 
     var _annotationCursorTimer = null;
@@ -2144,6 +2225,10 @@
         const canvasContainer = document.querySelector('.canvas-wrapper .canvas-container');
         if (!canvasContainer) return;
 
+        // 避免重复绑定
+        if (canvasContainer._wheelZoomBound) return;
+        canvasContainer._wheelZoomBound = true;
+
         canvasContainer.addEventListener('wheel', function (e) {
             // 只在有canvas的时候才处理
             if (!canvas) return;
@@ -2174,9 +2259,8 @@
 
         const loadToken = ++_reviewLoadToken;
 
-        // 只在首次加载或切换文件时重置缩放，但保留用户设置的缩放比例
-        // 如果是第一次加载或者之前没有设置过缩放，则重置为1
-        if (typeof _canvasDisplayScale === 'undefined' || _canvasDisplayScale === null) {
+        // 初始化显示缩放比例（如果未设置）
+        if (typeof _canvasDisplayScale !== 'number' || isNaN(_canvasDisplayScale)) {
             _canvasDisplayScale = 1;
         }
 
@@ -2193,12 +2277,8 @@
                 canvas.setDimensions({ width: nw, height: nh });
                 canvas.setBackgroundImage(img, function () {
                     if (loadToken !== _reviewLoadToken) return;
-                    // 使用CSS transform应用缩放，保持图像完整显示
-                    const canvasContainer = getCanvasContainer();
-                    if (canvasContainer) {
-                        canvasContainer.style.transform = 'scale(' + _canvasDisplayScale + ')';
-                        canvasContainer.style.transformOrigin = 'left top';
-                    }
+                    // 应用当前的显示缩放
+                    applyCanvasDisplayScale();
                     canvas.renderAll();
                     syncCanvasPointerGeometry();
                 });
@@ -2301,6 +2381,12 @@
             if (item.type === 'text') {
                 const posDisplay = posOriginalToDisplay(item.position || { left: 100, top: 100 });
                 const st = item.style || {};
+                // 创建干净的style对象，不包含undefined值
+                const cleanStyle = {};
+                if (st.fill !== undefined && st.fill !== null) cleanStyle.fill = st.fill;
+                if (st.stroke !== undefined && st.stroke !== null) cleanStyle.stroke = st.stroke;
+                if (st.fontSize !== undefined && st.fontSize !== null) cleanStyle.fontSize = st.fontSize;
+                if (st.fontFamily !== undefined && st.fontFamily !== null) cleanStyle.fontFamily = st.fontFamily;
                 const textbox = new fabric.Textbox(item.text || '文字', {
                     left: posDisplay.left,
                     top: posDisplay.top,
@@ -2329,7 +2415,7 @@
                     cornerStyle: 'circle',
                     transparentCorners: false,
                     cornerSize: 10,
-                    data: { annId: 'text_' + idx, role: 'text', title: item.text || '文字' }
+                    data: { annId: 'text_' + idx, role: 'text', title: item.text || '文字', style: cleanStyle }
                 });
                 canvas.add(textbox);
                 return;
@@ -2490,7 +2576,7 @@
             return;
         }
         const annId = newAnnId();
-        
+
         // 创建一个独立的文本框
         const textbox = new fabric.Textbox('新文字', {
             left: 100,
@@ -2522,11 +2608,11 @@
             cornerSize: 10,
             data: { annId: annId, role: 'text', title: '新文字' }
         });
-        
+
         canvas.add(textbox);
         canvas.setActiveObject(textbox);
         canvas.renderAll();
-        
+
         // 标记画布已修改
         refreshSaveDirtyUi();
     }
