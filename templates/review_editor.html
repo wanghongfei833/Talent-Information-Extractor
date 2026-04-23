@@ -123,13 +123,14 @@
     }
 
     .file-item {
-        padding: 12px 15px;
+        padding: 12px 15px 12px 35px;
         margin-bottom: 8px;
         background: #f8f9fa;
         border-radius: 6px;
         cursor: pointer;
         transition: all 0.3s;
         border-left: 3px solid transparent;
+        position: relative;
     }
 
     .file-item:hover {
@@ -141,6 +142,17 @@
         background: #e3f2fd;
         border-left-color: #2196f3;
         box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+    }
+
+    .file-checkbox {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: #667eea;
     }
 
     .file-name {
@@ -163,6 +175,28 @@
 
     .status-icon {
         font-size: 10px;
+    }
+
+    .file-delete-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(231, 76, 60, 0.8);
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        padding: 4px 6px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .file-item:hover .file-delete-btn {
+        opacity: 1;
+    }
+
+    .file-delete-btn:hover {
+        background: rgba(192, 57, 43, 1);
     }
 
     /* 中间画布区 */
@@ -188,7 +222,10 @@
         width: 100%;
         background: #f5f5f5;
         position: relative;
-        overflow: hidden;
+        overflow: auto;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
     }
 
 
@@ -632,6 +669,15 @@
             <div class="search-box">
                 <input type="text" id="file-search" placeholder="🔍 搜索文件..." onkeyup="filterFiles()">
             </div>
+            <div class="batch-actions" style="padding: 8px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #eee;">
+                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px;">
+                    <input type="checkbox" id="select-all-files" onchange="toggleSelectAllFiles()">
+                    全选
+                </label>
+                <button id="batch-delete-btn" onclick="batchDeleteFiles()" style="display: none; background: #e74c3c; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                    🗑️ 批量删除 (<span id="selected-count">0</span>)
+                </button>
+            </div>
             <div class="panel-body">
                 <div id="file-list" class="file-list">
                     <!-- 动态生成文件列表 -->
@@ -656,6 +702,7 @@
                     <button class="zoom-btn" onclick="scaleCanvasToActual()" title="原尺寸 (=)"
                         id="zoom-actual-btn">100%</button>
                     <button class="zoom-btn" onclick="scaleCanvasUp()" title="放大 (+)" id="zoom-in-btn">+</button>
+                    <button class="zoom-btn" onclick="resetCanvasView()" title="复位视图" id="reset-view-btn">🏠</button>
                 </div>
                 <span class="zoom-label" id="zoom-label">100%</span>
             </div>
@@ -874,6 +921,8 @@
     let _lastExportedImages = [];
     /** Canvas 显示缩放比例（用于大图自适应） */
     let _canvasDisplayScale = 1;
+    /** 保存初始视图状态（缩放和偏移） */
+    let _initialViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
 
     function newAnnId() {
         return 'a' + (++annIdSeq);
@@ -2037,6 +2086,8 @@
         }
     }
 
+    let _selectedForDelete = new Set();
+
     function renderRealFileList(list) {
         const container = document.getElementById('file-list');
         let html = '';
@@ -2045,19 +2096,115 @@
             const statusIcon = file.has_review_json ? '💾' : (file.has_json ? '✅' : '⚠️');
             const statusText = file.has_review_json ? '已保存复核' : (file.has_json ? '已解析' : '未解析');
             const active = file.image === currentFileImage ? 'active' : '';
+            const isSelected = _selectedForDelete.has(file.image);
 
             html += `
             <div class="file-item ${active}" data-image="${escapeAttr(file.image)}">
+                <input type="checkbox" class="file-checkbox" data-image="${escapeAttr(file.image)}"
+                    ${isSelected ? 'checked' : ''} onchange="toggleFileSelection('${escapeAttr(file.image)}')">
                 <div class="file-name">${file.name}</div>
                 <div class="file-status">
                     <span class="status-icon">${statusIcon}</span>
                     <span>${statusText}</span>
                 </div>
+                <button class="file-delete-btn" onclick="event.stopPropagation(); deleteFile('${escapeAttr(file.image)}')" title="删除文件">🗑️</button>
             </div>
         `;
         });
 
         container.innerHTML = html;
+        updateBatchDeleteUI();
+    }
+
+    function toggleFileSelection(imageFilename) {
+        if (_selectedForDelete.has(imageFilename)) {
+            _selectedForDelete.delete(imageFilename);
+        } else {
+            _selectedForDelete.add(imageFilename);
+        }
+        updateBatchDeleteUI();
+    }
+
+    function toggleSelectAllFiles() {
+        const selectAll = document.getElementById('select-all-files');
+        const keyword = document.getElementById('file-search').value.toLowerCase().trim();
+        const list = keyword ? realFiles.filter(f => f.name.toLowerCase().includes(keyword)) : realFiles;
+
+        if (selectAll.checked) {
+            list.forEach(f => _selectedForDelete.add(f.image));
+        } else {
+            _selectedForDelete.clear();
+        }
+        document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = selectAll.checked);
+        updateBatchDeleteUI();
+    }
+
+    function updateBatchDeleteUI() {
+        const count = _selectedForDelete.size;
+        document.getElementById('batch-delete-btn').style.display = count > 0 ? 'inline-block' : 'none';
+        document.getElementById('selected-count').textContent = count;
+
+        const keyword = document.getElementById('file-search').value.toLowerCase().trim();
+        const list = keyword ? realFiles.filter(f => f.name.toLowerCase().includes(keyword)) : realFiles;
+        document.getElementById('select-all-files').checked = count === list.length && list.length > 0;
+    }
+
+    async function batchDeleteFiles() {
+        if (_selectedForDelete.size === 0) return;
+
+        const count = _selectedForDelete.size;
+        if (!confirm(`确定要删除选中的 ${count} 个文件吗？\n\n此操作不可恢复！`)) {
+            return;
+        }
+
+        const toDelete = Array.from(_selectedForDelete);
+        let deletedCount = 0;
+        let failedCount = 0;
+
+        try {
+            for (const imageFilename of toDelete) {
+                const resp = await fetch(`${TIE_BASE}/api/review/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageFilename }),
+                    credentials: 'same-origin'
+                });
+                const data = await resp.json();
+                if (resp.ok && data.success) {
+                    deletedCount++;
+                    realFiles = realFiles.filter(f => f.image !== imageFilename);
+
+                    if (currentFileImage === imageFilename) {
+                        currentFileImage = null;
+                        currentFile = null;
+                        selectedBox = null;
+                    }
+                } else {
+                    failedCount++;
+                }
+            }
+
+            if (_selectedForDelete) _selectedForDelete.clear();
+
+            if (failedCount > 0) {
+                showReviewToast(`已删除 ${deletedCount} 个文件，${failedCount} 个失败`);
+            } else {
+                showReviewToast(`已删除 ${deletedCount} 个文件`);
+            }
+
+            clearPropertyPanel();
+            canvas.clear();
+            canvas.setBackgroundImage(null);
+            canvas.renderAll();
+
+            if (realFiles.length === 0) {
+                showEmptyState();
+            } else {
+                renderRealFileList(realFiles);
+            }
+        } catch (e) {
+            alert('批量删除失败：' + e.message);
+        }
     }
 
     function showEmptyState() {
@@ -2077,6 +2224,53 @@
             ? realFiles.filter(f => f.name.toLowerCase().includes(keyword))
             : realFiles;
         renderRealFileList(list);
+    }
+
+    async function deleteFile(imageFilename) {
+        const file = realFiles.find(f => f.image === imageFilename);
+        const fileName = file ? file.name : imageFilename;
+
+        if (!confirm(`确定要删除文件「${fileName}」吗？\n\n将同时删除：\n- 原始图片\n- 预览图\n- 解析结果 (JSON)\n- 复核标注 (review.json)\n- 导出图片\n\n此操作不可恢复！`)) {
+            return;
+        }
+
+        try {
+            const resp = await fetch(`${TIE_BASE}/api/review/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageFilename }),
+                credentials: 'same-origin'
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.success) {
+                throw new Error(data.error || '删除失败');
+            }
+
+            // 从列表中移除
+            realFiles = realFiles.filter(f => f.image !== imageFilename);
+            if (_selectedForDelete) _selectedForDelete.delete(imageFilename);
+
+            // 如果删除的是当前文件，清空画布
+            if (currentFileImage === imageFilename) {
+                currentFileImage = null;
+                currentFile = null;
+                selectedBox = null;
+                clearPropertyPanel();
+                canvas.clear();
+                canvas.setBackgroundImage(null);
+                canvas.renderAll();
+            }
+
+            // 重新渲染列表
+            if (realFiles.length === 0) {
+                showEmptyState();
+            } else {
+                renderRealFileList(realFiles);
+            }
+            showReviewToast(`已删除文件`);
+        } catch (e) {
+            alert('删除失败：' + e.message);
+        }
     }
 
     function selectFile(imageFilename) {
@@ -2279,6 +2473,8 @@
                     if (loadToken !== _reviewLoadToken) return;
                     // 应用当前的显示缩放
                     applyCanvasDisplayScale();
+                    // 图像居中显示
+                    centerImageInViewport();
                     canvas.renderAll();
                     syncCanvasPointerGeometry();
                 });
@@ -2568,6 +2764,57 @@
         enablePropertyInputs(false);
     }
 
+    /** 获取当前视图左上角在画布坐标系的坐标 */
+    function getViewportTopLeft() {
+        if (!canvas) return { x: 0, y: 0 };
+        const vt = canvas.viewportTransform;
+        // vt[4] 是水平偏移, vt[5] 是垂直偏移
+        // 由于 viewportTransform 是用于变换整个画布，需要取负才能得到视图左上角对应的画布坐标
+        return {
+            x: -vt[4] / (vt[0] || 1),
+            y: -vt[5] / (vt[3] || 1)
+        };
+    }
+
+    /** 将图像左上角放置在 canvas wrapper 中，并保存初始状态 */
+    function centerImageInViewport() {
+        if (!canvas) return;
+        // 重置 viewportTransform，图像左上角对齐
+        canvas.viewportTransform[0] = 1;
+        canvas.viewportTransform[3] = 1;
+        canvas.viewportTransform[4] = 0;
+        canvas.viewportTransform[5] = 0;
+        _canvasDisplayScale = 1;
+        // 保存初始视图状态
+        _initialViewState = {
+            zoom: canvas.viewportTransform[0],
+            offsetX: canvas.viewportTransform[4],
+            offsetY: canvas.viewportTransform[5]
+        };
+        updateZoomLabel();
+    }
+
+    /** 复位到初始视图状态 */
+    function resetCanvasView() {
+        if (!canvas) return;
+        canvas.viewportTransform[0] = _initialViewState.zoom;
+        canvas.viewportTransform[3] = _initialViewState.zoom;
+        canvas.viewportTransform[4] = _initialViewState.offsetX;
+        canvas.viewportTransform[5] = _initialViewState.offsetY;
+        _canvasDisplayScale = _initialViewState.zoom;
+        canvas.requestRenderAll();
+        updateZoomLabel();
+    }
+
+    /** 更新缩放百分比显示 */
+    function updateZoomLabel() {
+        const label = document.getElementById('zoom-label');
+        if (label && canvas) {
+            const zoom = (canvas.viewportTransform[0] * 100).toFixed(0);
+            label.textContent = zoom + '%';
+        }
+    }
+
     // ========== 操作按钮 ==========
     // 添加独立的文字（不关联任何框）
     function addNewText() {
@@ -2576,11 +2823,12 @@
             return;
         }
         const annId = newAnnId();
+        const viewPos = getViewportTopLeft();
 
-        // 创建一个独立的文本框
+        // 创建一个独立的文本框（位于当前视图左上角）
         const textbox = new fabric.Textbox('新文字', {
-            left: 100,
-            top: 100,
+            left: viewPos.x + 20,
+            top: viewPos.y + 20,
             width: 200,
             fontSize: _reviewLabelFontSize,
             fontFamily: 'Microsoft YaHei, "Segoe UI", "PingFang SC", sans-serif',
@@ -2624,12 +2872,16 @@
         }
         const pageNum = pageHintFromCurrentFile();
         const annId = newAnnId();
-        const box = [100, 100, 300, 150];
+        const viewPos = getViewportTopLeft();
+        const boxWidth = 200;
+        const boxHeight = 50;
+        // box 坐标用于保存（原始图像坐标）
+        const box = [viewPos.x + 20, viewPos.y + 20, viewPos.x + 20 + boxWidth, viewPos.y + 20 + boxHeight];
         const rect = new fabric.Rect({
-            left: 100,
-            top: 100,
-            width: 200,
-            height: 50,
+            left: viewPos.x + 20,
+            top: viewPos.y + 20,
+            width: boxWidth,
+            height: boxHeight,
             fill: 'rgba(52,152,219,0.3)',
             stroke: '#3498db',
             strokeWidth: 2,

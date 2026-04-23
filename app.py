@@ -542,6 +542,52 @@ def download_export_zip():
     resp.headers['Pragma'] = 'no-cache'
     return resp
 
+
+@tie.route('/api/review/delete', methods=['POST'])
+@login_required
+def delete_review_file():
+    """
+    删除指定的原始图片文件及其关联文件（JSON、预览图、导出图）。
+    JSON body: { image: "xxx.jpg" }
+    """
+    data = request.json or {}
+    image = data.get('image')
+    if not image:
+        return jsonify({'error': '参数错误：需要 image 字段'}), 400
+
+    # 安全检查
+    if not _review_image_basename_ok(image):
+        return jsonify({'error': '文件名非法'}), 400
+
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
+
+    # 要删除的文件列表
+    files_to_delete = [
+        os.path.join(user_folder, image),                    # 原始图片
+        os.path.join(user_folder, image.replace('.', '_preview.', 1)),  # 预览图
+        os.path.join(user_folder, image.rsplit('.', 1)[0] + '.json' if '.' in image else image + '.json'),  # 解析 JSON
+        os.path.join(user_folder, image.rsplit('.', 1)[0] + '.review.json' if '.' in image else image + '.review.json'),  # 复核 JSON
+    ]
+    # EXPORT 目录下的导出 JPG
+    export_dir = os.path.join(user_folder, 'EXPORT')
+    if os.path.isdir(export_dir):
+        stem = os.path.splitext(image)[0]
+        for ext in ['.jpg', '.jpeg', '.png']:
+            exp_file = os.path.join(export_dir, stem + ext)
+            if os.path.isfile(exp_file):
+                files_to_delete.append(exp_file)
+
+    deleted_count = 0
+    freed_bytes = 0
+    for f in files_to_delete:
+        if os.path.isfile(f):
+            freed_bytes += os.path.getsize(f)
+            os.remove(f)
+            deleted_count += 1
+
+    return jsonify({'success': True, 'deleted_files': deleted_count, 'freed_bytes': freed_bytes})
+
+
 @tie.route('/profile')
 @login_required
 def profile():
