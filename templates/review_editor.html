@@ -502,7 +502,7 @@
         overflow: hidden;
     }
 
-    .export-file-row {
+.export-file-row {
         display: flex;
         align-items: center;
         gap: 10px;
@@ -514,9 +514,30 @@
         border-bottom: none;
     }
 
-    .export-file-name {
+    .export-file-row.export-file-child {
+        background: #fafafa;
+        padding-left: 32px;
+    }
+
+    .export-group-header {
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        background: #f0f4ff;
+        border-bottom: 1px solid #e0e8ff;
         font-weight: 600;
         color: #2c3e50;
+    }
+
+    .export-group-name {
+        color: #1976d2;
+        font-size: 14px;
+    }
+
+    .export-group-pages {
+        color: #666;
+        font-size: 12px;
+        font-weight: normal;
     }
 
     .export-file-meta {
@@ -847,7 +868,7 @@
 <div class="export-modal-backdrop" id="export-backdrop" aria-hidden="true">
     <div class="export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
         <div class="export-modal-header">
-            <div id="export-title">导出标注为 JPG</div>
+            <div id="export-title">导出标注</div>
             <button type="button" class="btn btn-secondary btn-sm" id="export-close">关闭</button>
         </div>
         <div class="export-modal-body">
@@ -857,6 +878,18 @@
                     <span style="font-weight:700;">全选</span>
                 </label>
                 <span class="export-file-meta" id="export-selected-hint">已选 0 个文件</span>
+            </div>
+            <div style="padding: 8px 0; margin-bottom: 8px; border-bottom: 1px solid #eee;">
+                <label style="display:flex;align-items:center;gap:16px;font-size:13px;">
+                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                        <input type="radio" name="export-type" value="jpg" id="export-type-jpg" checked>
+                        JPG（逐页导出）
+                    </label>
+                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                        <input type="radio" name="export-type" value="pdf" id="export-type-pdf">
+                        PDF（同文件多页合并，多文件打包ZIP）
+                    </label>
+                </label>
             </div>
             <div class="export-file-list" id="export-file-list"></div>
         </div>
@@ -877,6 +910,8 @@
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
     /* Fabric 5.x 部分路径会把 textBaseline 写成非法值 'alphabetical'（Canvas 仅接受 alphabetic） */
     (function () {
@@ -917,8 +952,10 @@
     let _reviewScaleY = 1;
     let _reviewOrigSize = null;    // [w,h]
     let _reviewDisplaySize = null; // [w,h] 实际加载到画布的图（预览图）尺寸
-    /** 本次导出成功的文件列表（用于一键下载） */
+    /** 本次导出成功的 JPG 文件列表（用于一键下载） */
     let _lastExportedImages = [];
+    /** 本次导出成功的 PDF 名称（用于一键下载） */
+    let _lastExportedPdfName = null;
     /** Canvas 显示缩放比例（用于大图自适应） */
     let _canvasDisplayScale = 1;
     /** 保存初始视图状态（缩放和偏移） */
@@ -1140,23 +1177,83 @@
         hint.textContent = '已选 ' + checked + ' 个文件';
     }
 
+    function getFileBaseName(imageFilename) {
+        // 从 xxx_1.jpg 提取基础名 xxx，用于分组
+        const m = String(imageFilename || '').match(/^(.+)_(\d+)\.[^.]+$/);
+        return m ? m[1] : imageFilename.replace(/\.[^.]+$/, '');
+    }
+
     function renderExportFileList() {
         const listEl = document.getElementById('export-file-list');
         if (!listEl) return;
-        const rows = (realFiles || []).map(function (f) {
-            const safeName = escapeAttr(f.name || f.image || '');
-            const safeImg = escapeAttr(f.image || '');
-            return (
-                '<div class="export-file-row">' +
-                '<input type="checkbox" class="export-item" data-image="' + safeImg + '" checked>' +
-                '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;">' +
-                '<div class="export-file-name">' + safeName + '</div>' +
-                '<div class="export-file-meta">' + safeImg + '</div>' +
-                '</div>' +
-                '</div>'
-            );
-        }).join('');
-        listEl.innerHTML = rows || '<div style="padding:12px;color:#888;">暂无可导出的文件</div>';
+
+        const exportType = document.querySelector('input[name="export-type"]:checked')?.value || 'jpg';
+
+        if (exportType === 'pdf') {
+            // 按文件所属分组显示
+            const groups = {};
+            (realFiles || []).forEach(function (f) {
+                const base = getFileBaseName(f.image || '');
+                if (!groups[base]) {
+                    groups[base] = [];
+                }
+                groups[base].push(f);
+            });
+
+            // 排序：先按基础名，再按页码
+            const sortedKeys = Object.keys(groups).sort();
+            let html = '';
+            sortedKeys.forEach(function (base) {
+                const files = groups[base].sort(function (a, b) {
+                    const ma = String(a.image || '').match(/_(\d+)\./);
+                    const mb = String(b.image || '').match(/_(\d+)\./);
+                    return (ma ? parseInt(ma[1]) : 0) - (mb ? parseInt(mb[1]) : 0);
+                });
+                const pageCount = files.length;
+                const firstImg = files[0].image || '';
+                const safeBase = escapeAttr(base);
+                html += (
+                    '<div class="export-group-header" data-base="' + safeBase + '">' +
+                    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">' +
+                    '<input type="checkbox" class="export-group-check" data-base="' + safeBase + '" checked>' +
+                    '<span class="export-group-name">' + safeBase + '</span>' +
+                    '<span class="export-group-pages">(' + pageCount + ' 页)</span>' +
+                    '</label>' +
+                    '</div>'
+                );
+                files.forEach(function (f) {
+                    const safeImg = escapeAttr(f.image || '');
+                    const pageNum = String(f.image || '').match(/_(\d+)\./)?.[1] || '?';
+                    html += (
+                        '<div class="export-file-row export-file-child" data-parent="' + safeBase + '">' +
+                        '<div style="width:20px;"></div>' +
+                        '<input type="checkbox" class="export-item" data-image="' + safeImg + '" data-base="' + safeBase + '" checked>' +
+                        '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;">' +
+                        '<div class="export-file-name">第 ' + pageNum + ' 页</div>' +
+                        '<div class="export-file-meta">' + safeImg + '</div>' +
+                        '</div>' +
+                        '</div>'
+                    );
+                });
+            });
+            listEl.innerHTML = html || '<div style="padding:12px;color:#888;">暂无可导出的文件</div>';
+        } else {
+            // JPG 模式：逐个文件显示
+            const rows = (realFiles || []).map(function (f) {
+                const safeName = escapeAttr(f.name || f.image || '');
+                const safeImg = escapeAttr(f.image || '');
+                return (
+                    '<div class="export-file-row">' +
+                    '<input type="checkbox" class="export-item" data-image="' + safeImg + '" checked>' +
+                    '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;">' +
+                    '<div class="export-file-name">' + safeName + '</div>' +
+                    '<div class="export-file-meta">' + safeImg + '</div>' +
+                    '</div>' +
+                    '</div>'
+                );
+            }).join('');
+            listEl.innerHTML = rows || '<div style="padding:12px;color:#888;">暂无可导出的文件</div>';
+        }
         updateExportSelectedHint();
     }
 
@@ -1166,6 +1263,25 @@
         return Array.from(listEl.querySelectorAll('input[type="checkbox"][data-image]:checked'))
             .map(function (el) { return el.getAttribute('data-image'); })
             .filter(Boolean);
+    }
+
+    function getExportGroups() {
+        // 返回按文件分组的选择结果 { baseName: [images...] }
+        const groups = {};
+        collectExportSelections().forEach(function (img) {
+            const base = getFileBaseName(img);
+            if (!groups[base]) groups[base] = [];
+            groups[base].push(img);
+        });
+        // 排序每组内的页码
+        Object.keys(groups).forEach(function (k) {
+            groups[k].sort(function (a, b) {
+                const ma = String(a).match(/_(\d+)\./);
+                const mb = String(b).match(/_(\d+)\./);
+                return (ma ? parseInt(ma[1]) : 0) - (mb ? parseInt(mb[1]) : 0);
+            });
+        });
+        return groups;
     }
 
     function setExportProgress(done, total) {
@@ -1332,6 +1448,195 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             showReviewToast('开始下载 ZIP');
+        } catch (e) {
+            alert('下载失败：' + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function doExportSelectedPdfs() {
+        const groups = getExportGroups();
+        const groupNames = Object.keys(groups);
+        if (!groupNames.length) {
+            showReviewToast('请选择要导出的文件');
+            return;
+        }
+
+        const startBtn = document.getElementById('export-start');
+        const cancelBtn = document.getElementById('export-cancel');
+        const closeBtn = document.getElementById('export-close');
+        const dlBtn = document.getElementById('export-download');
+        if (startBtn) startBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+        if (closeBtn) closeBtn.disabled = true;
+        if (dlBtn) dlBtn.disabled = true;
+
+        const totalPages = groupNames.reduce(function (sum, k) { return sum + groups[k].length; }, 0);
+        let donePages = 0;
+        setExportProgress(0, totalPages);
+
+        try {
+            const { jsPDF } = window.jspdf;
+            // 排序组名保证输出顺序一致
+            groupNames.sort(function (a, b) { return a.localeCompare(b); });
+
+            const pdfBlobs = [];
+
+            for (const base of groupNames) {
+                const images = groups[base];
+                // 排序每组内按页码顺序
+                images.sort(function (a, b) {
+                    const ma = String(a).match(/_(\d+)\./);
+                    const mb = String(b).match(/_(\d+)\./);
+                    return (ma ? parseInt(ma[1]) : 0) - (mb ? parseInt(mb[1]) : 0);
+                });
+                let pdfDoc = null;
+
+                for (const imgName of images) {
+                    // 渲染单页 JPG
+                    const jpgBlob = await renderOneExportJpg(imgName);
+                    const dataUrl = await blobToDataUrl(jpgBlob);
+                    const img = new Image();
+                    await new Promise(function (resolve, reject) {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = dataUrl;
+                    });
+
+                    // 根据图片尺寸决定方向
+                    const isLandscape = img.width > img.height;
+                    if (!pdfDoc) {
+                        pdfDoc = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+                    } else {
+                        pdfDoc.addPage(isLandscape ? [297, 210] : [210, 297]);
+                    }
+
+                    // 【关键修复】根据实际页面方向取正确尺寸
+                    // jsPDF landscape: 内部宽度=297mm, 高度=210mm; portrait: 宽度=210mm, 高度=297mm
+                    const pw = isLandscape ? 297 : 210;
+                    const ph = isLandscape ? 210 : 297;
+
+                    // 计算缩放比例以适应 A4（留边距）
+                    const margin = 10;
+                    const availW = pw - margin * 2;
+                    const availH = ph - margin * 2;
+                    const scaleX = availW / img.width;
+                    const scaleY = availH / img.height;
+                    const scale = Math.min(scaleX, scaleY);
+                    const imgW = img.width * scale;
+                    const imgH = img.height * scale;
+
+                    // 居中放置（使用实际页面尺寸计算偏移）
+                    const xOffset = (pw - imgW) / 2;
+                    const yOffset = (ph - imgH) / 2;
+                    pdfDoc.addImage(img.src, 'JPEG', xOffset, yOffset, imgW, imgH);
+
+                    donePages++;
+                    setExportProgress(donePages, totalPages);
+                }
+
+                if (pdfDoc) {
+                    pdfBlobs.push({ base: base, blob: pdfDoc.output('blob') });
+                }
+            }
+
+            if (pdfBlobs.length > 0) {
+                _pdfBlobsForZip = pdfBlobs;
+                _lastPdfBlob = null; // 不再是单个 PDF
+                _lastExportedPdfName = 'multi';
+                _lastExportedImages = [];
+
+                if (pdfBlobs.length === 1) {
+                    // 只有 1 个 PDF，直接下载该文件
+                    const url = URL.createObjectURL(pdfBlobs[0].blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = pdfBlobs[0].base + '.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showReviewToast('PDF 导出完成：' + pdfBlobs[0].base + '.pdf');
+                } else {
+                    // 多个 PDF，自动打包 ZIP 并下载
+                    const zip = new JSZip();
+                    for (const item of pdfBlobs) {
+                        zip.file(item.base + '.pdf', item.blob);
+                    }
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(zipBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '复核标注_' + new Date().toISOString().slice(0, 10) + '_' + pdfBlobs.length + '个文件.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showReviewToast('PDF 导出完成，共 ' + pdfBlobs.length + ' 个文件已打包为 ZIP');
+                }
+                if (dlBtn) dlBtn.disabled = false;
+            } else {
+                showReviewToast('没有可导出的页面');
+            }
+        } catch (e) {
+            alert('PDF 导出中断：' + e.message);
+        } finally {
+            setExportProgress(0, 0);
+            if (startBtn) startBtn.disabled = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+            if (closeBtn) closeBtn.disabled = false;
+        }
+    }
+
+    let _pdfBlobsForZip = [];
+    /** 最近一次导出的单个合并 PDF blob（用于重新下载） */
+    let _lastPdfBlob = null;
+
+    function blobToDataUrl(blob) {
+        return new Promise(function (resolve, reject) {
+            const reader = new FileReader();
+            reader.onload = function () { resolve(reader.result); };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    async function downloadLastExportPdf() {
+        const btn = document.getElementById('export-download');
+        if (btn) btn.disabled = true;
+
+        try {
+            if (_lastPdfBlob) {
+                // 重新下载最近导出的单个合并 PDF
+                const url = URL.createObjectURL(_lastPdfBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '复核标注_' + new Date().toISOString().slice(0, 10) + '.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showReviewToast('PDF 重新下载完成');
+            } else if (_pdfBlobsForZip && _pdfBlobsForZip.length) {
+                // 兼容旧逻辑：多个 PDF 打包成 ZIP
+                const zip = new JSZip();
+                for (const item of _pdfBlobsForZip) {
+                    zip.file(item.base + '.pdf', item.blob);
+                }
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'EXPORT_PDF_' + new Date().toISOString().replace(/[:.]/g, '').slice(0, 15) + '.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showReviewToast('PDF ZIP 下载完成');
+            } else {
+                showReviewToast('暂无可下载的 PDF');
+            }
         } catch (e) {
             alert('下载失败：' + e.message);
         } finally {
@@ -1633,23 +1938,69 @@
         const exportAll = document.getElementById('export-check-all');
         const exportList = document.getElementById('export-file-list');
         const exportBd = document.getElementById('export-backdrop');
+        const exportTypeRadios = document.querySelectorAll('input[name="export-type"]');
+
         if (exportClose) exportClose.addEventListener('click', function () { setExportModalOpen(false); });
         if (exportCancel) exportCancel.addEventListener('click', function () { setExportModalOpen(false); });
-        if (exportStart) exportStart.addEventListener('click', function () { doExportSelectedJpgs(); });
-        if (exportDownload) exportDownload.addEventListener('click', function () { downloadLastExportZip(); });
+        if (exportStart) exportStart.addEventListener('click', function () {
+            const type = document.querySelector('input[name="export-type"]:checked')?.value || 'jpg';
+            if (type === 'pdf') {
+                doExportSelectedPdfs();
+            } else {
+                doExportSelectedJpgs();
+            }
+        });
+        if (exportDownload) exportDownload.addEventListener('click', function () {
+            const type = document.querySelector('input[name="export-type"]:checked')?.value || 'jpg';
+            if (type === 'pdf') {
+                downloadLastExportPdf();
+            } else {
+                downloadLastExportZip();
+            }
+        });
         if (exportBd) exportBd.addEventListener('click', function (e) {
             if (e.target === exportBd) setExportModalOpen(false);
         });
+
+        // 导出类型切换
+        exportTypeRadios.forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                renderExportFileList();
+            });
+        });
+
         if (exportAll && exportList) {
             exportAll.addEventListener('change', function () {
                 const on = !!exportAll.checked;
                 exportList.querySelectorAll('input[type="checkbox"][data-image]').forEach(function (el) {
                     el.checked = on;
                 });
+                // 分组复选框也要同步
+                exportList.querySelectorAll('input.export-group-check').forEach(function (el) {
+                    el.checked = on;
+                });
                 updateExportSelectedHint();
             });
             exportList.addEventListener('change', function (e) {
-                if (e.target && e.target.matches('input[type="checkbox"][data-image]')) {
+                const target = e.target;
+                if (target.matches('input.export-group-check')) {
+                    // 分组全选
+                    const base = target.getAttribute('data-base');
+                    exportList.querySelectorAll('input[data-base="' + base + '"][data-image]').forEach(function (el) {
+                        el.checked = target.checked;
+                    });
+                    updateExportSelectedHint();
+                    return;
+                }
+                if (target.matches('input[data-image]')) {
+                    // 单个文件选中，更新分组状态
+                    const base = target.getAttribute('data-base');
+                    if (base) {
+                        const allInGroup = exportList.querySelectorAll('input[data-base="' + base + '"][data-image]');
+                        const checkedInGroup = exportList.querySelectorAll('input[data-base="' + base + '"][data-image]:checked');
+                        const groupCheck = exportList.querySelector('input.export-group-check[data-base="' + base + '"]');
+                        if (groupCheck) groupCheck.checked = allInGroup.length > 0 && checkedInGroup.length === allInGroup.length;
+                    }
                     const all = exportList.querySelectorAll('input[type="checkbox"][data-image]').length;
                     const ck = exportList.querySelectorAll('input[type="checkbox"][data-image]:checked').length;
                     exportAll.checked = all > 0 && ck === all;

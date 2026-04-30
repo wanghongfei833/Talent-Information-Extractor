@@ -141,7 +141,6 @@ os.makedirs(os.path.join(basedir, 'instance'), exist_ok=True)
 # 初始化 Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'tie.login'
 login_manager.login_message = '请先登录'
 
 # 导入模型并从 models 中获取 db 实例
@@ -765,6 +764,8 @@ def configure_api():
     
     return render_template('configure_api.html')
 
+
+
 @tie.route('/upload', methods=['POST'])
 @login_required
 def upload_file():
@@ -848,10 +849,14 @@ def upload_file():
             base_url=base_url, 
             progress_callback=None
             )
+
+
         # 写入为json
 
         json_save_path = f"{os.path.splitext(filepath)[0]}.json"
+
         os.remove(filepath)
+
         return jsonify({
             'success': True,
             'filename': filename,
@@ -952,6 +957,9 @@ def tie_storage_clear():
 # 将整个业务挂载到 /TIE 前缀下（避免与服务器其他业务路由冲突）
 app.register_blueprint(tie, url_prefix=TIE_PREFIX)
 
+# 蓝图注册后再设置 login_view（必须在蓝图注册之后，否则路由解析会失败）
+login_manager.login_view = 'tie.login'
+
 
 @app.route('/')
 def root_redirect():
@@ -1001,4 +1009,4 @@ if __name__ == '__main__':
             print("ℹ️  超级管理员账号已存在")
     
     # 运行应用
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=6001)
